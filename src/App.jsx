@@ -1,19 +1,61 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Users, Plus, Search, Edit2, Trash2, Shield, User as UserIcon, 
-  Download, CheckCircle, XCircle, GraduationCap, BookOpen, PieChart, 
-  Camera, Upload, Lock, LogOut, ArrowRight, RotateCcw, Calendar, 
-  Clock, Check, X, Filter, BarChart3, ArrowLeftRight, Accessibility, 
-  Clock3, School, StickyNote, FileText, ExternalLink, Copy, CreditCard, 
-  ChevronDown
+  Users, 
+  Plus, 
+  Search, 
+  Edit2, 
+  Trash2, 
+  Shield, 
+  User as UserIcon, 
+  Download, 
+  CheckCircle, 
+  XCircle,
+  GraduationCap,
+  BookOpen,
+  PieChart,
+  Camera,
+  Upload,
+  Lock,
+  LogOut,
+  ArrowRight,
+  RotateCcw,
+  Calendar,
+  Clock,
+  Check,
+  X,
+  Filter,
+  BarChart3,
+  ArrowLeftRight,
+  Accessibility,
+  Clock3,
+  School,
+  StickyNote,
+  FileText,
+  ExternalLink,
+  Copy,
+  CreditCard,
+  ChevronDown,
+  Menu
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
-  getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged 
+  getAuth, 
+  signInAnonymously, 
+  signInWithCustomToken,
+  onAuthStateChanged 
 } from 'firebase/auth';
 import { 
-  getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, 
-  onSnapshot, query, serverTimestamp, arrayUnion, arrayRemove 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  onSnapshot, 
+  query, 
+  serverTimestamp,
+  arrayUnion,
+  arrayRemove 
 } from 'firebase/firestore';
 
 // --- Firebase Configuration ---
@@ -30,11 +72,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-// This string is just a folder name for your data, you can keep it or change it
-const appId = 'my-school-database'; 
+const appId = 'my-school-database';
 
 // --- Components ---
-// ... (The rest of your code stays the same from here down)
 
 const Avatar = ({ name, color, photoUrl, size = "w-12 h-12" }) => {
   if (photoUrl) {
@@ -155,11 +195,8 @@ export default function StudentDatabaseApp() {
     if (!auth) return;
     const initAuth = async () => {
       try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
+        // Attempt anonymous sign-in
+        await signInAnonymously(auth);
       } catch (error) { console.error("Auth error:", error); }
     };
     initAuth();
@@ -214,14 +251,50 @@ export default function StudentDatabaseApp() {
     }
   };
 
+  // --- UPDATED IMAGE HANDLER ---
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 800 * 1024) {
-        alert("Image is too large. Please choose an image under 800KB."); return;
+      // 1. Check for hard limit (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image is too large. Please choose an image under 5MB.");
+        return;
       }
+
+      // 2. Compress the image logic
       const reader = new FileReader();
-      reader.onloadend = () => setFormData(prev => ({ ...prev, photoUrl: reader.result }));
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Resize to max dimension of 800px (keeps it well under 1MB)
+          const MAX_DIMENSION = 800;
+          if (width > height) {
+            if (width > MAX_DIMENSION) {
+              height *= MAX_DIMENSION / width;
+              width = MAX_DIMENSION;
+            }
+          } else {
+            if (height > MAX_DIMENSION) {
+              width *= MAX_DIMENSION / height;
+              height = MAX_DIMENSION;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Compress to JPEG at 0.7 quality
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          setFormData(prev => ({ ...prev, photoUrl: dataUrl }));
+        };
+        img.src = event.target.result;
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -440,6 +513,9 @@ export default function StudentDatabaseApp() {
         return s.name.toLowerCase().includes(profileYearFilter === 'All' ? '' : profileYearFilter.toLowerCase());
       }
       if (currentSection === 'stats') {
+        // FIX: Exclude MBK from Statistics
+        if (program === 'mbk') return false;
+
         const matchYear = statsFilters.year === 'All' || getYearFromClass(s.className) === statsFilters.year;
         const matchGender = statsFilters.gender === 'All' || (s.gender || 'Lelaki') === statsFilters.gender;
         const matchSubject = statsFilters.subject === 'All' || s.subject === statsFilters.subject;
@@ -488,9 +564,35 @@ export default function StudentDatabaseApp() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Section Tabs - Segmented Control Style */}
+        {/* Section Navigation */}
         <div className="flex justify-center mb-8">
-          <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 inline-flex gap-1 overflow-x-auto max-w-full">
+          
+          {/* Mobile Dropdown (Visible < sm) */}
+          <div className="sm:hidden w-full">
+            <div className="relative">
+              <select
+                className="block w-full appearance-none rounded-xl border-slate-200 bg-white py-3 pl-4 pr-10 text-base font-bold text-slate-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={currentSection}
+                onChange={(e) => {
+                   const tabId = e.target.value;
+                   setCurrentSection(tabId);
+                   if (tabId === 'profile') { setProfileYearFilter('All'); setClassFilter('All'); }
+                   if (tabId === 'mbk') setProfileYearFilter('');
+                }}
+              >
+                <option value="profile">Profile Pemulihan</option>
+                <option value="mbk">Murid MBK & OKU</option>
+                <option value="lulus">Lulus Pemulihan</option>
+                <option value="stats">Statistik</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                 <Menu size={20} />
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Tabs (Visible >= sm) */}
+          <div className="hidden sm:inline-flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 gap-1">
             {[
               { id: 'profile', label: 'Profile Pemulihan' },
               { id: 'mbk', label: 'Murid MBK & OKU' },
@@ -568,7 +670,7 @@ export default function StudentDatabaseApp() {
 
             <div className="bg-orange-50 p-8 rounded-2xl border border-orange-100 flex items-center justify-between shadow-sm">
               <div>
-                 <p className="text-sm text-orange-600 font-bold uppercase tracking-wider">Students Found</p>
+                 <p className="text-sm text-orange-600 font-bold uppercase tracking-wider">Students Found (Pemulihan Only)</p>
                  <h2 className="text-5xl font-extrabold text-orange-900 mt-1 tracking-tight">{filteredStudents.length}</h2>
               </div>
               <div className="bg-orange-100 p-4 rounded-2xl">
@@ -964,102 +1066,100 @@ export default function StudentDatabaseApp() {
         )}
       </main>
 
-      {/* Admin Login Modal */}
+      {/* ... Keep existing Modals (Admin, Delete, Move, Notes, Attendance, Edit/Add) ... */}
       <Modal 
         isOpen={showAdminLogin} 
         onClose={() => { setShowAdminLogin(false); setAdminPassword(''); setLoginError(''); }}
-        title="Admin Access"
+        title="Admin Login"
       >
-        <div className="flex flex-col items-center justify-center mb-8 mt-2">
-          <div className="bg-indigo-50 p-4 rounded-full mb-4 shadow-sm">
-            <Lock className="text-indigo-600 w-8 h-8" />
+        <div className="flex flex-col items-center justify-center mb-6">
+          <div className="bg-blue-50 p-3 rounded-full mb-3">
+            <Lock className="text-blue-600 w-8 h-8" />
           </div>
-          <p className="text-sm font-medium text-slate-500 text-center max-w-xs">
-            Restricted area. Please verify your credentials to continue.
+          <p className="text-sm text-gray-500 text-center">
+            Please enter the admin password to access edit features.
           </p>
         </div>
 
-        <form onSubmit={handleAdminLogin} className="space-y-5">
+        <form onSubmit={handleAdminLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Passcode</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
               type="password"
-              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono text-lg ${loginError ? 'border-red-300 bg-red-50 text-red-900' : 'border-slate-200 bg-slate-50 text-slate-900'}`}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
               value={adminPassword}
               onChange={(e) => { setAdminPassword(e.target.value); setLoginError(''); }}
-              placeholder="••••••"
+              placeholder="Enter password..."
               autoFocus
             />
-            {loginError && <p className="text-xs font-bold text-red-500 mt-2 flex items-center gap-1"><XCircle size={12} /> {loginError}</p>}
+            {loginError && <p className="text-xs text-red-500 mt-1">{loginError}</p>}
           </div>
           
           <button
             type="submit"
-            className="w-full py-3.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5"
+            className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm"
           >
-            Verify Identity
+            Authenticate
           </button>
         </form>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
       <Modal 
         isOpen={deleteConfirmation.isOpen} 
         onClose={() => setDeleteConfirmation({ isOpen: false, studentId: null, studentName: '' })}
         title="Confirm Deletion"
       >
-        <div className="flex flex-col items-center justify-center mb-8 mt-2 text-center">
-          <div className="bg-red-50 p-5 rounded-full mb-4 shadow-sm">
-            <Trash2 className="text-red-500 w-10 h-10" />
+        <div className="flex flex-col items-center justify-center mb-6 text-center">
+          <div className="bg-red-50 p-4 rounded-full mb-4">
+            <Trash2 className="text-red-600 w-10 h-10" />
           </div>
-          <h4 className="text-xl font-extrabold text-slate-900 mb-2">Delete this record?</h4>
-          <p className="text-slate-500 text-sm px-4">
-            You are about to permanently delete <span className="font-bold text-slate-800">{deleteConfirmation.studentName}</span>. This action cannot be undone.
+          <h4 className="text-lg font-bold text-gray-900 mb-2">Delete Record?</h4>
+          <p className="text-gray-500">
+            Are you sure you want to delete <span className="font-semibold text-gray-900">{deleteConfirmation.studentName}</span>? This action cannot be undone.
           </p>
         </div>
 
         <div className="flex gap-3">
            <button
             onClick={() => setDeleteConfirmation({ isOpen: false, studentId: null, studentName: '' })}
-            className="flex-1 px-4 py-3 text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+            className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
           >
             Cancel
           </button>
           <button
             onClick={executeDelete}
-            className="flex-1 px-4 py-3 text-sm font-bold text-white bg-red-500 hover:bg-red-600 rounded-xl shadow-lg shadow-red-100 transition-all hover:-translate-y-0.5"
+            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 shadow-sm"
           >
             Yes, Delete
           </button>
         </div>
       </Modal>
 
-      {/* Move Confirmation Modal */}
       <Modal 
         isOpen={moveConfirmation.isOpen} 
         onClose={() => setMoveConfirmation({ isOpen: false, student: null, newStatus: '' })}
-        title="Change Status"
+        title="Confirm Status Change"
       >
-        <div className="flex flex-col items-center justify-center mb-8 mt-2 text-center">
-          <div className="bg-blue-50 p-5 rounded-full mb-4 shadow-sm">
+        <div className="flex flex-col items-center justify-center mb-6 text-center">
+          <div className="bg-blue-50 p-4 rounded-full mb-4">
             <ArrowLeftRight className="text-blue-600 w-10 h-10" />
           </div>
-          <h4 className="text-xl font-extrabold text-slate-900 mb-2">Update Status</h4>
-          <p className="text-slate-500 text-sm mb-6 px-4">
+          <h4 className="text-lg font-bold text-gray-900 mb-2">Move Student?</h4>
+          <p className="text-gray-500 mb-4">
             {moveConfirmation.newStatus === 'Lulus' 
-              ? <span>Mark <span className="font-bold text-slate-800">{moveConfirmation.student?.name}</span> as <span className="text-purple-600 font-bold">Lulus Pemulihan</span>?</span>
-              : <span>Move <span className="font-bold text-slate-800">{moveConfirmation.student?.name}</span> back to <span className="text-blue-600 font-bold">Active Profile</span>?</span>
+              ? `Mark ${moveConfirmation.student?.name} as "Lulus Pemulihan"?`
+              : `Move ${moveConfirmation.student?.name} back to "Profile Murid Pemulihan"?`
             }
           </p>
 
           {moveConfirmation.newStatus === 'Lulus' && (
-            <div className="w-full text-left bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Graduation Date</label>
-              <div className="flex items-center gap-3 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
-                <Calendar size={18} className="text-slate-400 ml-1" />
+            <div className="w-full text-left bg-gray-50 p-3 rounded-lg border border-gray-200">
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Graduation Date</label>
+              <div className="flex items-center gap-2">
+                <Calendar size={16} className="text-gray-400" />
                 <input
                   type="date"
-                  className="bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-700 w-full p-0"
+                  className="bg-transparent border-none focus:ring-0 text-sm font-medium text-gray-900 w-full p-0"
                   value={moveDate}
                   onChange={(e) => setMoveDate(e.target.value)}
                 />
@@ -1071,15 +1171,15 @@ export default function StudentDatabaseApp() {
         <div className="flex gap-3">
            <button
             onClick={() => setMoveConfirmation({ isOpen: false, student: null, newStatus: '' })}
-            className="flex-1 px-4 py-3 text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+            className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
           >
             Cancel
           </button>
           <button
             onClick={executeMove}
-            className="flex-1 px-4 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg shadow-blue-200 transition-all hover:-translate-y-0.5"
+            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm"
           >
-            Confirm Update
+            Confirm
           </button>
         </div>
       </Modal>
@@ -1088,99 +1188,88 @@ export default function StudentDatabaseApp() {
       <Modal
         isOpen={isNotesModalOpen}
         onClose={() => setIsNotesModalOpen(false)}
-        title="Student Notes"
+        title="Catatan Murid"
       >
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex items-center gap-4 p-4 bg-amber-50 rounded-xl border border-amber-100">
+          <div className="flex items-center gap-4 p-4 bg-amber-50 rounded-lg">
             <Avatar 
               name={selectedStudentForNotes?.name || ''} 
               color={selectedStudentForNotes?.color || 'bg-blue-500'} 
               photoUrl={selectedStudentForNotes?.photoUrl}
             />
             <div>
-              <h4 className="font-bold text-slate-900">{selectedStudentForNotes?.name}</h4>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{selectedStudentForNotes?.className}</p>
+              <h4 className="font-bold text-gray-900">{selectedStudentForNotes?.name}</h4>
+              <p className="text-sm text-gray-500">{selectedStudentForNotes?.className}</p>
             </div>
           </div>
 
           {/* Form */}
-          <form onSubmit={saveNote} className="space-y-3 bg-white p-1 rounded-xl">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-1">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Date</label>
-                <input 
-                  type="date" 
-                  required
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs font-bold text-slate-600"
-                  value={noteForm.date}
-                  onChange={(e) => setNoteForm({...noteForm, date: e.target.value})}
-                />
-              </div>
-              <div className="col-span-2">
-                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Action</label>
-                 <button 
-                  type="submit" 
-                  className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold text-xs shadow-sm transition-colors"
-                >
-                  {noteForm.id ? 'Update Note' : 'Add New Note'}
-                </button>
-              </div>
+          <form onSubmit={saveNote} className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Date</label>
+              <input 
+                type="date" 
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                value={noteForm.date}
+                onChange={(e) => setNoteForm({...noteForm, date: e.target.value})}
+              />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Content</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Catatan (Note)</label>
               <textarea 
                 required
                 rows="3"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                 value={noteForm.text}
                 onChange={(e) => setNoteForm({...noteForm, text: e.target.value})}
-                placeholder="Type note details..."
+                placeholder="Enter note details here..."
               ></textarea>
             </div>
+            <button 
+              type="submit" 
+              className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium shadow-sm transition-colors"
+            >
+              {noteForm.id ? 'Update Note' : 'Add Note'}
+            </button>
           </form>
 
           {/* List */}
-          <div className="border-t border-slate-100 pt-4">
-            <h5 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
-              History
+          <div className="border-t border-gray-100 pt-4">
+            <h5 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+              <Clock size={16} /> History
             </h5>
-            <div className="space-y-3 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+            <div className="space-y-3 max-h-60 overflow-y-auto">
               {selectedStudentForNotes?.notes && selectedStudentForNotes.notes.length > 0 ? (
                 [...selectedStudentForNotes.notes]
                   .sort((a, b) => new Date(b.date) - new Date(a.date))
                   .map((note) => (
-                  <div key={note.id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm relative group hover:border-amber-200 transition-colors">
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="flex items-center gap-2">
-                        <Calendar size={12} className="text-amber-500" />
-                        <span className="text-xs font-bold text-slate-500">
-                          {note.date}
-                        </span>
-                      </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div key={note.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200 relative group">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-xs font-bold text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200">
+                        {note.date}
+                      </span>
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
                           onClick={() => startEditNote(note)}
-                          className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-md transition-colors"
+                          className="text-blue-600 hover:text-blue-800"
                         >
-                          <Edit2 size={12} />
+                          <Edit2 size={14} />
                         </button>
                         <button 
                           onClick={() => deleteNote(note.id)}
-                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                          className="text-red-600 hover:text-red-800"
                         >
-                          <Trash2 size={12} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
-                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap pl-5 border-l-2 border-amber-100">{note.text}</p>
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{note.text}</p>
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                  <StickyNote className="text-slate-300 w-8 h-8 mx-auto mb-2" />
-                  <p className="text-xs text-slate-400 font-medium">No notes recorded yet.</p>
-                </div>
+                <p className="text-center text-sm text-gray-400 py-4">No notes recorded yet.</p>
               )}
             </div>
           </div>
@@ -1191,68 +1280,65 @@ export default function StudentDatabaseApp() {
       <Modal
         isOpen={isAttendanceModalOpen}
         onClose={() => setIsAttendanceModalOpen(false)}
-        title="Record Attendance"
+        title="Manage Attendance"
       >
         <div className="space-y-6">
-          <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
+          <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
             <Avatar 
               name={selectedStudentForAttendance?.name || ''} 
               color={selectedStudentForAttendance?.color || 'bg-blue-500'} 
               photoUrl={selectedStudentForAttendance?.photoUrl}
             />
             <div>
-              <h4 className="font-bold text-slate-900">{selectedStudentForAttendance?.name}</h4>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{selectedStudentForAttendance?.className}</p>
+              <h4 className="font-bold text-gray-900">{selectedStudentForAttendance?.name}</h4>
+              <p className="text-sm text-gray-500">{selectedStudentForAttendance?.className}</p>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Select Date</label>
-            <div className="flex gap-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Mark for specific date</label>
+            <div className="flex gap-2">
               <input 
                 type="date" 
                 value={attendanceDate} 
                 onChange={(e) => setAttendanceDate(e.target.value)}
-                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-            </div>
-            <div className="grid grid-cols-2 gap-3 mt-3">
               <button 
                 onClick={() => markAttendance('present')}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold shadow-md shadow-emerald-200 transition-all hover:-translate-y-0.5"
+                className="flex items-center gap-1 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 font-medium"
               >
-                <CheckCircle size={18} /> Present
+                <Check size={16} /> Present
               </button>
               <button 
                 onClick={() => markAttendance('absent')}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 rounded-xl font-bold transition-colors"
+                className="flex items-center gap-1 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium"
               >
-                <XCircle size={18} /> Absent
+                <X size={16} /> Absent
               </button>
             </div>
           </div>
 
-          <div className="border-t border-slate-100 pt-4">
-            <h5 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
-              History Log
+          <div>
+            <h5 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Clock size={14} /> Record History
             </h5>
-            <div className="max-h-56 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+            <div className="max-h-48 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-100">
               {selectedStudentForAttendance?.attendanceRecords?.length > 0 ? (
                 [...selectedStudentForAttendance.attendanceRecords]
                   .sort((a, b) => new Date(b.date) - new Date(a.date))
                   .map((record, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100 transition-colors group">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full ${record.status === 'present' ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-                      <span className="text-sm font-medium text-slate-600">{record.date}</span>
+                  <div key={idx} className="flex justify-between items-center p-3 hover:bg-gray-50">
+                    <div className="text-sm">
+                      <span className="font-medium text-gray-700">{record.date}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`text-[10px] font-extrabold uppercase px-2 py-1 rounded-md ${record.status === 'present' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                      <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${record.status === 'present' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
                         {record.status}
                       </span>
                       <button 
                         onClick={() => deleteAttendanceRecord(record)}
-                        className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                        className="text-gray-400 hover:text-red-500"
                         title="Delete entry"
                       >
                         <Trash2 size={14} />
@@ -1261,7 +1347,7 @@ export default function StudentDatabaseApp() {
                   </div>
                 ))
               ) : (
-                <p className="text-center text-xs text-slate-400 py-4 font-medium">No attendance records found.</p>
+                <div className="p-4 text-center text-sm text-gray-400">No records found.</div>
               )}
             </div>
           </div>
@@ -1274,20 +1360,20 @@ export default function StudentDatabaseApp() {
         onClose={() => setIsModalOpen(false)}
         title={editingId ? "Edit Student" : "Add New Student"}
       >
-        <form onSubmit={handleSave} className="space-y-5">
+        <form onSubmit={handleSave} className="space-y-4">
           
           {!editingId && (
-            <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
+            <div className="flex p-1 bg-gray-100 rounded-lg mb-4">
               <button
                 type="button"
-                className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all shadow-sm ${formData.program === 'pemulihan' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 shadow-none'}`}
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'pemulihan' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                 onClick={() => setFormData(prev => ({ ...prev, program: 'pemulihan' }))}
               >
                 Profile Pemulihan
               </button>
               <button
                 type="button"
-                className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all shadow-sm ${formData.program === 'mbk' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 shadow-none'}`}
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'mbk' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
                 onClick={() => setFormData(prev => ({ ...prev, program: 'mbk' }))}
               >
                 Murid MBK & OKU
@@ -1295,31 +1381,36 @@ export default function StudentDatabaseApp() {
             </div>
           )}
 
-          <div className="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 hover:border-indigo-300 transition-colors group">
-            <div className="mb-3 transition-transform group-hover:scale-105">
+          <div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 hover:border-blue-400 transition-colors">
+            <div className="mb-3">
               <Avatar 
                 name={formData.name || 'User'} 
-                color="bg-slate-300" 
+                color="bg-gray-300" 
                 photoUrl={formData.photoUrl} 
-                size="w-24 h-24"
+                size="w-20 h-20"
               />
             </div>
             <label className="cursor-pointer">
-              <span className="flex items-center gap-2 text-sm font-bold text-indigo-600 hover:text-indigo-700 bg-white px-4 py-2 rounded-full shadow-sm border border-indigo-100 transition-all hover:-translate-y-0.5">
+              <span className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700">
                 <Camera size={16} />
                 {formData.photoUrl ? 'Change Photo' : 'Upload Photo'}
               </span>
-              <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handleImageUpload}
+              />
             </label>
-            <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-wide">Max size 800KB</p>
+            <p className="text-xs text-gray-400 mt-1">Max size 5MB</p>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Full Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
             <input
               type="text"
               required
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium text-slate-800"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="e.g. Jane Doe"
@@ -1327,23 +1418,29 @@ export default function StudentDatabaseApp() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Gender</label>
-            <div className="grid grid-cols-2 gap-3">
-              <label className={`flex items-center justify-center gap-2 cursor-pointer p-3 rounded-xl border-2 transition-all ${formData.gender === 'Lelaki' ? 'border-blue-500 bg-blue-50/50 text-blue-700' : 'border-slate-100 bg-white text-slate-500 hover:border-slate-200'}`}>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Jantina (Gender)</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input 
-                  type="radio" name="gender" value="Lelaki" className="hidden"
+                  type="radio" 
+                  name="gender" 
+                  value="Lelaki" 
                   checked={formData.gender === 'Lelaki'} 
                   onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                  className="text-blue-600 focus:ring-blue-500"
                 />
-                <span className="font-bold text-sm">Lelaki</span>
+                <span className="text-sm text-gray-700">Lelaki</span>
               </label>
-              <label className={`flex items-center justify-center gap-2 cursor-pointer p-3 rounded-xl border-2 transition-all ${formData.gender === 'Perempuan' ? 'border-pink-500 bg-pink-50/50 text-pink-700' : 'border-slate-100 bg-white text-slate-500 hover:border-slate-200'}`}>
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input 
-                  type="radio" name="gender" value="Perempuan" className="hidden"
+                  type="radio" 
+                  name="gender" 
+                  value="Perempuan" 
                   checked={formData.gender === 'Perempuan'} 
                   onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                  className="text-blue-600 focus:ring-blue-500"
                 />
-                <span className="font-bold text-sm">Perempuan</span>
+                <span className="text-sm text-gray-700">Perempuan</span>
               </label>
             </div>
           </div>
@@ -1351,83 +1448,90 @@ export default function StudentDatabaseApp() {
           {formData.program === 'pemulihan' ? (
             <>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Class Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
                 <input
                   type="text"
                   required
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm font-medium text-slate-800"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm"
                   value={formData.className}
                   onChange={handleClassNameChange}
                   placeholder="e.g. 2 He"
                 />
-                <p className="text-[10px] text-slate-400 mt-1 ml-1 font-medium">Format: Year ClassName (e.g. 2 He)</p>
+                <p className="text-xs text-gray-400 mt-1">Format: Year ClassName (e.g. 2 He)</p>
               </div>
               
-              <div className="relative">
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Subject</label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
                 <select
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium text-slate-800 appearance-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
                   value={formData.subject}
                   onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                 >
                   {subjects.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <ChevronDown className="absolute right-4 top-9 text-slate-400 pointer-events-none" size={18} />
+              </div>
+
+              <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-800">
+                Attendance is now managed via the calendar icon on the student card.
               </div>
             </>
           ) : (
             <>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Category</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className={`flex flex-col items-center justify-center gap-1 cursor-pointer p-3 rounded-xl border-2 transition-all text-center ${formData.mbkType === 'MBK' ? 'border-amber-500 bg-amber-50/50 text-amber-700' : 'border-slate-100 bg-white text-slate-500 hover:border-slate-200'}`}>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Kategori (Category)</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input 
-                      type="radio" name="mbkType" value="MBK" className="hidden"
+                      type="radio" 
+                      name="mbkType" 
+                      value="MBK" 
                       checked={formData.mbkType === 'MBK'} 
                       onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })}
+                      className="text-amber-600 focus:ring-amber-500"
                     />
-                    <span className="font-bold text-sm">MBK</span>
-                    <span className="text-[10px] font-semibold opacity-70">Tiada Kad</span>
+                    <span className="text-sm text-gray-700">MBK (Tiada Kad)</span>
                   </label>
-                  <label className={`flex flex-col items-center justify-center gap-1 cursor-pointer p-3 rounded-xl border-2 transition-all text-center ${formData.mbkType === 'OKU' ? 'border-emerald-500 bg-emerald-50/50 text-emerald-700' : 'border-slate-100 bg-white text-slate-500 hover:border-slate-200'}`}>
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input 
-                      type="radio" name="mbkType" value="OKU" className="hidden"
+                      type="radio" 
+                      name="mbkType" 
+                      value="OKU" 
                       checked={formData.mbkType === 'OKU'} 
                       onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })}
+                      className="text-green-600 focus:ring-green-500"
                     />
-                    <span className="font-bold text-sm">OKU</span>
-                    <span className="text-[10px] font-semibold opacity-70">Ada Kad</span>
+                    <span className="text-sm text-gray-700">OKU (Ada Kad)</span>
                   </label>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">MyKid / IC Number</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">MyKid / IC Number</label>
                 <input 
                   type="text" 
                   required 
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-lg tracking-wide font-bold text-slate-800"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm" 
                   value={formData.ic} 
                   onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })}
                   placeholder="e.g. 160520101234" 
                   maxLength={12}
                 />
-                <p className="text-[10px] text-slate-400 mt-1 ml-1 font-medium">System auto-calculates School Year.</p>
+                <p className="text-xs text-gray-400 mt-1">System will auto-calculate School Year based on first 2 digits.</p>
               </div>
             </>
           )}
 
-          <div className="pt-6 flex gap-3">
+          <div className="pt-4 flex justify-end gap-3">
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
-              className="flex-1 py-3.5 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className={`flex-1 py-3.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all hover:-translate-y-0.5 ${formData.program === 'mbk' ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'}`}
+              className={`px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm ${formData.program === 'mbk' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'}`}
             >
               {editingId ? 'Save Changes' : 'Add Student'}
             </button>
