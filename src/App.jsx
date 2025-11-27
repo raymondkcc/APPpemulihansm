@@ -117,7 +117,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-// --- Helper Functions (Safeguarded against crashes) ---
+// --- Helper Functions ---
 
 const calculateSchoolYearFromIC = (ic) => {
   if (!ic) return null;
@@ -708,7 +708,6 @@ export default function StudentDatabaseApp() {
               </div>
             </div>
 
-            {/* Student Groups */}
             {loading ? (
               <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading database...</p></div>
             ) : Object.keys(groupedProfileStudents).length === 0 ? (
@@ -754,7 +753,7 @@ export default function StudentDatabaseApp() {
 
                           {role === 'admin' && (
                             <>
-                              <div className="hidden sm:flex flex-col absolute top-2 right-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm">
+                              <div className="hidden sm:flex flex-col absolute top-2 right-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
                                 <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded"><StickyNote size={14} /></button>
                                 <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Calendar size={14} /></button>
                                 <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded"><Edit2 size={14} /></button>
