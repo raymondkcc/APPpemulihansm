@@ -83,7 +83,7 @@ const Avatar = ({ name, color, photoUrl, size = "w-12 h-12" }) => {
       <img 
         src={photoUrl} 
         alt={name} 
-        className={`${size} rounded-full object-cover shadow-sm border-2 border-white ring-1 ring-gray-100 flex-shrink-0`} 
+        className={`${size} rounded-full object-cover shadow-sm border-2 border-white ring-1 ring-gray-100 flex-shrink-0 bg-white`} 
       />
     );
   }
@@ -130,9 +130,11 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 const calculateSchoolYearFromIC = (ic) => {
   if (!ic || ic.length < 2) return null;
   const yearPrefix = parseInt(ic.substring(0, 2));
+  // Assumption: 2000s. 
   const birthYear = 2000 + yearPrefix; 
   const currentYear = new Date().getFullYear();
   const age = currentYear - birthYear;
+  // Standard Malaysia: Year 1 is 7 years old.
   return age - 6;
 };
 
@@ -146,10 +148,14 @@ const getYearFromClassString = (className) => {
 
 // 3. Master function to get Current Year
 const getStudentCurrentYear = (student) => {
+  // Priority 1: IC Number (Best for Auto-Advance)
   const icYear = calculateSchoolYearFromIC(student.ic);
   if (icYear !== null) return icYear;
+
+  // Priority 2: Class Name (Manual)
   const classYear = getYearFromClassString(student.className);
   if (classYear !== null) return classYear;
+
   return 0; // Unknown
 };
 
@@ -194,7 +200,7 @@ export default function StudentDatabaseApp() {
   
   // App State
   const [role, setRole] = useState('user'); 
-  const [currentSection, setCurrentSection] = useState('profile'); 
+  const [currentSection, setCurrentSection] = useState('profile'); // 'profile', 'plan', 'lulus', 'stats', 'mbk'
   
   // Filters
   const [profileYearFilter, setProfileYearFilter] = useState('All');
@@ -936,6 +942,7 @@ export default function StudentDatabaseApp() {
               </div>
             </div>
 
+            {/* Student Groups */}
             {loading ? (
               <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading database...</p></div>
             ) : Object.keys(groupedProfileStudents).length === 0 ? (
