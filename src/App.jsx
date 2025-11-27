@@ -700,8 +700,8 @@ export default function StudentDatabaseApp() {
 
         {/* --- View Logic --- */}
         
-        {/* STATS VIEW */}
-        {currentSection === 'stats' && (
+        {currentSection === 'stats' ? (
+          /* --- STATISTICS VIEW --- */
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Same Stats View as before */}
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
@@ -775,10 +775,8 @@ export default function StudentDatabaseApp() {
               </div>
             )}
           </div>
-        )}
-
-        {/* MBK VIEW */}
-        {currentSection === 'mbk' && (
+        ) : currentSection === 'mbk' ? (
+          /* --- MBK & OKU VIEW --- */
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
               <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight">Senarai Murid MBK</h2>
@@ -840,14 +838,17 @@ export default function StudentDatabaseApp() {
               </div>
             )}
           </div>
-        )}
-
-        {/* LULUS VIEW */}
-        {currentSection === 'lulus' && (
+        ) : currentSection === 'lulus' ? (
+          /* --- LULUS VIEW --- */
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
              <div className="flex justify-between items-center mb-8">
               <h2 className="text-2xl font-extrabold text-purple-900 tracking-tight">Graduates (Lulus)</h2>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                {lastUpdatedString && (
+                  <span className="text-xs font-bold text-purple-400 bg-purple-50 px-3 py-1.5 rounded-lg hidden md:inline-block">
+                    Last updated: {lastUpdatedString}
+                  </span>
+                )}
                 <button onClick={exportToCSV} className="flex items-center gap-2 text-sm text-slate-600 hover:text-purple-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-purple-200 hover:shadow-md transition-all"><Download size={18} /> Export CSV</button>
               </div>
             </div>
@@ -893,7 +894,12 @@ export default function StudentDatabaseApp() {
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
              <div className="flex justify-between items-center mb-8">
               <h2 className="text-2xl font-extrabold text-blue-900 tracking-tight">PLaN (Thn 4-6)</h2>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                 {lastUpdatedString && (
+                  <span className="text-xs font-bold text-blue-400 bg-blue-50 px-3 py-1.5 rounded-lg hidden md:inline-block">
+                    Last updated: {lastUpdatedString}
+                  </span>
+                )}
                 <button onClick={exportToCSV} className="flex items-center gap-2 text-sm text-slate-600 hover:text-blue-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-blue-200 hover:shadow-md transition-all"><Download size={18} /> Export CSV</button>
               </div>
             </div>
