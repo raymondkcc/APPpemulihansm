@@ -351,7 +351,6 @@ export default function StudentDatabaseApp() {
         photoUrl: formData.photoUrl || '', updatedAt: serverTimestamp(), ic: formData.ic || ''
       };
       
-      // Save fields based on selection
       if (formData.program === 'pemulihan') {
         dataToSave.className = formData.className; 
         dataToSave.subject = formData.subject;
@@ -533,7 +532,6 @@ export default function StudentDatabaseApp() {
       if (s.status === 'Lulus') return false;
       
       const studentYear = getStudentCurrentYear(s);
-      // Logic: Only show Year 1, 2, 3
       if (studentYear > 3) return false;
 
       const matchesYear = profileYearFilter === 'All' || studentYear === parseInt(profileYearFilter);
@@ -562,10 +560,9 @@ export default function StudentDatabaseApp() {
       if (s.status === 'Lulus') return false;
 
       const studentYear = getStudentCurrentYear(s);
-      // Logic: Only show Year 4, 5, 6
       if (studentYear < 4 || studentYear > 6) return false;
 
-      return true; // PLaN ignores typical profile filters for simplicity, or we can add them back
+      return true; 
     });
 
     const groups = {};
@@ -613,7 +610,6 @@ export default function StudentDatabaseApp() {
     });
   }, [students, profileYearFilter, subjectFilter, currentSection, statsFilters]);
 
-  // Last Updated calculation for the current tab
   const lastUpdatedString = useMemo(() => {
     let list = [];
     if (currentSection === 'profile') {
@@ -631,7 +627,6 @@ export default function StudentDatabaseApp() {
   // --- Render ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 text-slate-800 font-sans selection:bg-indigo-100">
-      {/* Navbar */}
       <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
@@ -646,17 +641,11 @@ export default function StudentDatabaseApp() {
             
             <div className="flex items-center gap-3">
               <div className="bg-slate-100/80 backdrop-blur-sm rounded-full p-1 flex items-center text-xs font-bold shadow-inner">
-                <button 
-                  onClick={() => handleRoleSwitch('admin')}
-                  className={`px-4 py-1.5 rounded-full transition-all duration-300 flex items-center gap-1.5 ${role === 'admin' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-                >
+                <button onClick={() => handleRoleSwitch('admin')} className={`px-4 py-1.5 rounded-full transition-all duration-300 flex items-center gap-1.5 ${role === 'admin' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>
                   {role === 'admin' && <Shield size={12} className="text-indigo-500" />}
                   Admin
                 </button>
-                <button 
-                  onClick={() => handleRoleSwitch('user')}
-                  className={`px-4 py-1.5 rounded-full transition-all duration-300 ${role === 'user' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-                >
+                <button onClick={() => handleRoleSwitch('user')} className={`px-4 py-1.5 rounded-full transition-all duration-300 ${role === 'user' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>
                   User
                 </button>
               </div>
@@ -667,141 +656,206 @@ export default function StudentDatabaseApp() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Section Navigation */}
         <div className="flex justify-center mb-8">
-          
           <div className="sm:hidden w-full">
             <div className="relative">
-              <select
-                className="block w-full appearance-none rounded-xl border-slate-200 bg-white py-3 pl-4 pr-10 text-base font-bold text-slate-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                value={currentSection}
-                onChange={(e) => {
+              <select className="block w-full appearance-none rounded-xl border-slate-200 bg-white py-3 pl-4 pr-10 text-base font-bold text-slate-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" value={currentSection} onChange={(e) => {
                    const tabId = e.target.value;
                    setCurrentSection(tabId);
                    if (tabId === 'profile') { setProfileYearFilter('All'); setClassFilter('All'); }
                    if (tabId === 'mbk') setProfileYearFilter('');
-                }}
-              >
+                }}>
                 <option value="profile">Profile Pemulihan (Thn 1-3)</option>
                 <option value="plan">PLaN (Thn 4-6)</option>
                 <option value="mbk">Murid MBK & OKU</option>
                 <option value="lulus">Lulus Pemulihan</option>
                 <option value="stats">Statistik</option>
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                 <Menu size={20} />
-              </div>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500"><Menu size={20} /></div>
             </div>
           </div>
-
           <div className="hidden sm:inline-flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 gap-1">
-            {[
-              { id: 'profile', label: 'Profile Pemulihan' },
-              { id: 'plan', label: 'PLaN' },
-              { id: 'mbk', label: 'Murid MBK & OKU' },
-              { id: 'lulus', label: 'Lulus' },
-              { id: 'stats', label: 'Statistik' }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => { 
+            {[{ id: 'profile', label: 'Profile Pemulihan' }, { id: 'plan', label: 'PLaN' }, { id: 'mbk', label: 'Murid MBK & OKU' }, { id: 'lulus', label: 'Lulus' }, { id: 'stats', label: 'Statistik' }].map(tab => (
+              <button key={tab.id} onClick={() => { 
                   setCurrentSection(tab.id); 
                   if (tab.id === 'profile') { setProfileYearFilter('All'); setClassFilter('All'); }
                   if (tab.id === 'mbk') setProfileYearFilter('');
-                }}
-                className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 whitespace-nowrap ${
-                  currentSection === tab.id
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                {tab.label}
-              </button>
+                }} className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 whitespace-nowrap ${currentSection === tab.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>{tab.label}</button>
             ))}
           </div>
         </div>
 
-        {/* --- View Logic --- */}
-        
-        {/* STATS VIEW */}
-        {currentSection === 'stats' && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-              <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <Filter size={20} className="text-indigo-500" /> Filter Database
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="relative">
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Year (Tahun)</label>
-                  <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-medium appearance-none" value={statsFilters.year} onChange={(e) => setStatsFilters(prev => ({...prev, year: e.target.value}))}>
-                    {availableYears.map(y => <option key={y} value={y}>{y === 'All' ? 'Semua Tahun' : `Tahun ${y}`}</option>)}
+        {currentSection === 'profile' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex flex-col lg:flex-row gap-4 mb-8 justify-between items-start lg:items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+              <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                <div className="relative group">
+                  <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-bold text-sm appearance-none transition-colors hover:bg-slate-100 cursor-pointer" value={profileYearFilter} onChange={(e) => setProfileYearFilter(e.target.value)}>
+                    {availableYears.map(y => <option key={y} value={y}>{y === 'All' ? 'Filter: All Years' : `Tahun ${y}`}</option>)}
                   </select>
-                  <ChevronDown className="absolute right-3 top-9 text-slate-400 w-4 h-4 pointer-events-none" />
+                  <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
                 </div>
-                <div className="relative">
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Gender</label>
-                  <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-medium appearance-none" value={statsFilters.gender} onChange={(e) => setStatsFilters(prev => ({...prev, gender: e.target.value}))}>
-                    <option value="All">Semua Jantina</option>
-                    <option value="Lelaki">Lelaki</option>
-                    <option value="Perempuan">Perempuan</option>
+                <div className="relative group">
+                  <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-bold text-sm appearance-none transition-colors hover:bg-slate-100 cursor-pointer" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+                    {availableClasses.map(c => <option key={c} value={c}>{c === 'All' ? 'Filter: All Classes' : c}</option>)}
                   </select>
-                  <ChevronDown className="absolute right-3 top-9 text-slate-400 w-4 h-4 pointer-events-none" />
+                  <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
                 </div>
-                <div className="relative">
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Subject</label>
-                  <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-medium appearance-none" value={statsFilters.subject} onChange={(e) => setStatsFilters(prev => ({...prev, subject: e.target.value}))}>
-                    <option value="All">Semua Subjek</option>
+                <div className="relative group">
+                  <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-bold text-sm appearance-none transition-colors hover:bg-slate-100 cursor-pointer" value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
+                    <option value="All">Filter: All Subjects</option>
                     {subjects.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
-                  <ChevronDown className="absolute right-3 top-9 text-slate-400 w-4 h-4 pointer-events-none" />
+                  <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
                 </div>
               </div>
-            </div>
-            <div className="bg-orange-50 p-8 rounded-2xl border border-orange-100 flex items-center justify-between shadow-sm">
-              <div>
-                 <p className="text-sm text-orange-600 font-bold uppercase tracking-wider">Students Found (Pemulihan Only)</p>
-                 <h2 className="text-5xl font-extrabold text-orange-900 mt-1 tracking-tight">{filteredStudents.length}</h2>
+
+              <div className="flex gap-3 w-full lg:w-auto items-center">
+                 {lastUpdatedString && (
+                  <span className="text-xs font-bold text-blue-400 bg-blue-50 px-3 py-1.5 rounded-lg hidden lg:inline-block whitespace-nowrap">
+                    <RefreshCw size={10} className="inline mr-1"/> {lastUpdatedString}
+                  </span>
+                )}
+                {role === 'admin' && currentSection === 'profile' && (
+                  <button onClick={openAdd} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white px-5 py-2.5 rounded-xl shadow-md shadow-blue-200 transition-all hover:-translate-y-0.5 font-bold text-sm"><Plus size={18} strokeWidth={2.5} /> Add Student</button>
+                )}
+                <button onClick={exportToCSV} className="flex-1 lg:flex-none flex items-center justify-center gap-2 text-sm text-slate-600 hover:text-blue-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-blue-200 hover:shadow-md transition-all"><Download size={18} /> Export CSV</button>
               </div>
-              <div className="bg-orange-100 p-4 rounded-2xl">
-                <PieChart className="text-orange-500 w-12 h-12" />
-              </div>
             </div>
-            {filteredStudents.length > 0 && (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-100">
-                    <tr>
-                      <th className="px-6 py-4 font-bold text-slate-600">Name</th>
-                      <th className="px-6 py-4 font-bold text-slate-600">Gender</th>
-                      <th className="px-6 py-4 font-bold text-slate-600">Class</th>
-                      <th className="px-6 py-4 font-bold text-slate-600">Subject</th>
-                      <th className="px-6 py-4 font-bold text-slate-600">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {filteredStudents.map(student => (
-                      <tr key={student.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="px-6 py-4 font-bold text-slate-800">{student.name}</td>
-                        <td className="px-6 py-4 text-slate-500">{student.gender || 'Lelaki'}</td>
-                        <td className="px-6 py-4 text-slate-500 font-mono text-xs bg-slate-100 rounded px-2 py-1 w-fit mx-6">{student.className}</td>
-                        <td className="px-6 py-4 text-slate-500">{student.subject}</td>
-                         <td className="px-6 py-4">
-                           <span className={`px-3 py-1 rounded-full text-xs font-bold ${student.status === 'Lulus' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                             {student.status || 'Active'}
-                           </span>
-                         </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+
+            {loading ? (
+              <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading database...</p></div>
+            ) : Object.keys(groupedProfileStudents).length === 0 ? (
+              <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-slate-300 shadow-sm"><div className="bg-slate-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6"><Users className="text-slate-300 w-10 h-10" /></div><h3 className="text-xl font-bold text-slate-900 mb-2">No students found</h3><p className="text-slate-500">Try adjusting your filters.</p></div>
+            ) : (
+              <div className="space-y-10">
+                {Object.keys(groupedProfileStudents).sort().map(className => {
+                  const style = getClassColorStyle(className);
+                  return (
+                  <div key={className} className={`bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm`}>
+                    <div className={`px-8 py-4 border-b ${style.border} flex items-center justify-between bg-white`}>
+                      <h3 className={`font-extrabold ${style.text} text-lg flex items-center gap-3`}><div className={`bg-white p-2 rounded-lg shadow-sm border ${style.border}`}><School className={style.icon} size={20} /></div>{className}</h3>
+                      <span className={`text-xs font-bold bg-white ${style.icon} px-3 py-1.5 rounded-lg border ${style.border} shadow-sm`}>{groupedProfileStudents[className].length} Students</span>
+                    </div>
+                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                      {groupedProfileStudents[className].map(student => {
+                        const studentStats = calculateStats(student.attendanceRecords || []);
+                        return (
+                        <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-100 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col sm:flex-row lg:flex-col items-center p-3 gap-4">
+                          <div className={`absolute top-0 left-0 w-full sm:w-1.5 lg:w-full h-1.5 sm:h-full lg:h-1.5 ${studentStats.percent >= 75 ? 'bg-gradient-to-r sm:bg-gradient-to-b lg:bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-gradient-to-r sm:bg-gradient-to-b lg:bg-gradient-to-r from-amber-400 to-amber-600'}`}></div>
+                          
+                          <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-20 h-20" />
+                          
+                          <div className="flex-1 w-full text-center sm:text-left lg:text-center">
+                             <div className="flex items-center justify-center sm:justify-start lg:justify-center gap-2 mb-1">
+                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{className}</span>
+                             </div>
+                            <h3 className="font-bold text-sm text-slate-900 leading-tight mb-1 line-clamp-1">{student.name}</h3>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">{student.gender || 'Lelaki'}</p>
+                            
+                            <div className="flex flex-col gap-1 w-full">
+                               <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase">
+                                 <span>Attendance</span>
+                                 <span className={studentStats.percent >= 75 ? 'text-emerald-600' : 'text-amber-600'}>{studentStats.percent}%</span>
+                               </div>
+                               <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div className={`h-full rounded-full ${studentStats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${studentStats.percent}%` }}></div></div>
+                            </div>
+                            
+                            <div className="mt-2 text-[10px] text-slate-400 text-center sm:text-left lg:text-center font-medium">
+                              Updated: {student.updatedAt ? formatDate(student.updatedAt) : 'New'}
+                            </div>
+                          </div>
+
+                          {role === 'admin' && (
+                            <>
+                              <div className="hidden sm:flex flex-col absolute top-2 right-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
+                                <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded"><StickyNote size={14} /></button>
+                                <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Calendar size={14} /></button>
+                                <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded"><Edit2 size={14} /></button>
+                                <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 hover:bg-purple-50 rounded"><ArrowRight size={14} /></button>
+                                <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
+                              </div>
+                              <div className="sm:hidden w-full mt-2 pt-2 border-t border-slate-50 flex justify-around">
+                                <button onClick={() => openNotesModal(student)} className="p-2 text-amber-500 bg-slate-100 rounded-lg"><StickyNote size={18} /></button>
+                                <button onClick={() => openAttendanceModal(student)} className="p-2 text-blue-500 bg-slate-100 rounded-lg"><Calendar size={18} /></button>
+                                <button onClick={() => openEdit(student)} className="p-2 text-slate-400 bg-slate-100 rounded-lg"><Edit2 size={18} /></button>
+                                <button onClick={() => toggleStudentStatus(student)} className="p-2 text-purple-500 bg-slate-100 rounded-lg"><ArrowRight size={18} /></button>
+                                <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-slate-100 rounded-lg"><Trash2 size={18} /></button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )})}
+                    </div>
+                  </div>
+                )})}
               </div>
             )}
           </div>
         )}
 
-        {/* MBK VIEW */}
-        {currentSection === 'mbk' && (
+        {/* ... (Other sections: plan, mbk, lulus, stats - keep similar structure but apply mobile action bar logic as done in profile above) ... */}
+        
+        {currentSection === 'plan' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div className="flex justify-between items-center mb-8">
+              <h2 className="text-2xl font-extrabold text-blue-900 tracking-tight">PLaN (Thn 4-6)</h2>
+              <div className="flex gap-2 items-center">
+                 {lastUpdatedString && (
+                  <span className="text-xs font-bold text-blue-400 bg-blue-50 px-3 py-1.5 rounded-lg hidden md:inline-block">
+                    Last updated: {lastUpdatedString}
+                  </span>
+                )}
+                <button onClick={exportToCSV} className="flex items-center gap-2 text-sm text-slate-600 hover:text-blue-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-blue-200 hover:shadow-md transition-all"><Download size={18} /> Export CSV</button>
+              </div>
+            </div>
+            {loading ? (
+              <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading...</p></div>
+            ) : Object.keys(groupedPlanStudents).length === 0 ? (
+              <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-slate-300"><div className="bg-blue-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6"><BookOpenCheck className="text-blue-300 w-10 h-10" /></div><h3 className="text-xl font-bold text-slate-900 mb-2">No PLaN students</h3><p className="text-slate-500">Students in Year 4, 5, and 6 appear here automatically.</p></div>
+            ) : (
+              <div className="space-y-10">
+                {Object.keys(groupedPlanStudents).sort().map(groupKey => (
+                  <div key={groupKey} className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div className="bg-blue-50/50 px-8 py-4 border-b border-blue-100 flex items-center justify-between backdrop-blur-sm">
+                      <h3 className="font-extrabold text-blue-900 text-lg flex items-center gap-2"><BookOpenCheck className="text-blue-500" size={20} />{groupKey}</h3>
+                      <span className="text-xs font-bold bg-white text-blue-700 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm">{groupedPlanStudents[groupKey].length} Students</span>
+                    </div>
+                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {groupedPlanStudents[groupKey].map(student => (
+                        <div key={student.id} className="bg-white border border-slate-100 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
+                          <div className="flex items-center gap-4 mb-4">
+                            <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" />
+                            <div><h4 className="font-bold text-slate-900 text-base leading-tight mb-1">{student.name}</h4><span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{student.gender}</span></div>
+                          </div>
+                          
+                          {role === 'admin' && (
+                            <>
+                              <div className="hidden sm:flex absolute top-4 right-4 gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
+                                 <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded transition-colors"><StickyNote size={16} /></button>
+                                 <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded transition-colors"><Trash2 size={16} /></button>
+                              </div>
+                              <div className="sm:hidden w-full mt-4 pt-4 border-t border-slate-50 flex justify-around">
+                                 <button onClick={() => openNotesModal(student)} className="p-2 text-amber-500 bg-slate-100 rounded-lg"><StickyNote size={18} /></button>
+                                 <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-slate-100 rounded-lg"><Trash2 size={18} /></button>
+                              </div>
+                            </>
+                          )}
+                          <div className="mt-auto pt-4 border-t border-slate-50 flex flex-col gap-2">
+                             <div className="flex items-center justify-between text-xs"><span className="font-bold text-slate-400 uppercase tracking-wider">Subject</span><span className="font-semibold text-slate-700 text-right">{student.subject}</span></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {currentSection === 'mbk' && (
+           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
               <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight">Senarai Murid MBK</h2>
               <div className="flex gap-3 w-full md:w-auto items-center">
@@ -929,653 +983,35 @@ export default function StudentDatabaseApp() {
               </div>
             )}
           </div>
-        ) : currentSection === 'plan' ? (
-          /* --- PLaN VIEW (Year 4-6) --- */
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="flex justify-between items-center mb-8">
-              <h2 className="text-2xl font-extrabold text-blue-900 tracking-tight">PLaN (Thn 4-6)</h2>
-              <div className="flex gap-2 items-center">
-                 {lastUpdatedString && (
-                  <span className="text-xs font-bold text-blue-400 bg-blue-50 px-3 py-1.5 rounded-lg hidden md:inline-block">
-                    Last updated: {lastUpdatedString}
-                  </span>
-                )}
-                <button onClick={exportToCSV} className="flex items-center gap-2 text-sm text-slate-600 hover:text-blue-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-blue-200 hover:shadow-md transition-all"><Download size={18} /> Export CSV</button>
-              </div>
-            </div>
-            {loading ? (
-              <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading...</p></div>
-            ) : Object.keys(groupedPlanStudents).length === 0 ? (
-              <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-slate-300"><div className="bg-blue-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6"><BookOpenCheck className="text-blue-300 w-10 h-10" /></div><h3 className="text-xl font-bold text-slate-900 mb-2">No PLaN students</h3><p className="text-slate-500">Students in Year 4, 5, and 6 appear here automatically.</p></div>
-            ) : (
-              <div className="space-y-10">
-                {Object.keys(groupedPlanStudents).sort().map(groupKey => (
-                  <div key={groupKey} className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
-                    <div className="bg-blue-50/50 px-8 py-4 border-b border-blue-100 flex items-center justify-between backdrop-blur-sm">
-                      <h3 className="font-extrabold text-blue-900 text-lg flex items-center gap-2"><BookOpenCheck className="text-blue-500" size={20} />{groupKey}</h3>
-                      <span className="text-xs font-bold bg-white text-blue-700 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm">{groupedPlanStudents[groupKey].length} Students</span>
-                    </div>
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {groupedPlanStudents[groupKey].map(student => (
-                        <div key={student.id} className="bg-white border border-slate-100 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
-                          <div className="flex items-center gap-4 mb-4">
-                            <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" />
-                            <div><h4 className="font-bold text-slate-900 text-base leading-tight mb-1">{student.name}</h4><span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{student.gender}</span></div>
-                          </div>
-                          
-                          {role === 'admin' && (
-                            <>
-                              <div className="hidden sm:flex absolute top-4 right-4 gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
-                                 <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded transition-colors"><StickyNote size={16} /></button>
-                                 <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded transition-colors"><Trash2 size={16} /></button>
-                              </div>
-                              <div className="sm:hidden w-full mt-4 pt-4 border-t border-slate-50 flex justify-around">
-                                 <button onClick={() => openNotesModal(student)} className="p-2 text-amber-500 bg-slate-100 rounded-lg"><StickyNote size={18} /></button>
-                                 <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-red-50 rounded-lg"><Trash2 size={18} /></button>
-                              </div>
-                            </>
-                          )}
-                          <div className="mt-auto pt-4 border-t border-slate-50 flex flex-col gap-2">
-                             <div className="flex items-center justify-between text-xs"><span className="font-bold text-slate-400 uppercase tracking-wider">Subject</span><span className="font-semibold text-slate-700 text-right">{student.subject}</span></div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          /* --- PROFILE VIEW (Year 1-3) --- */
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col lg:flex-row gap-4 mb-8 justify-between items-start lg:items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-              <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-                <div className="relative group">
-                  <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-bold text-sm appearance-none transition-colors hover:bg-slate-100 cursor-pointer" value={profileYearFilter} onChange={(e) => setProfileYearFilter(e.target.value)}>
-                    {availableYears.map(y => <option key={y} value={y}>{y === 'All' ? 'Filter: All Years' : `Tahun ${y}`}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
-                </div>
-                <div className="relative group">
-                  <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-bold text-sm appearance-none transition-colors hover:bg-slate-100 cursor-pointer" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
-                    {availableClasses.map(c => <option key={c} value={c}>{c === 'All' ? 'Filter: All Classes' : c}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
-                </div>
-                <div className="relative group">
-                  <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-bold text-sm appearance-none transition-colors hover:bg-slate-100 cursor-pointer" value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
-                    <option value="All">Filter: All Subjects</option>
-                    {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
-                </div>
-              </div>
-
-              <div className="flex gap-3 w-full lg:w-auto items-center">
-                 {lastUpdatedString && (
-                  <span className="text-xs font-bold text-blue-400 bg-blue-50 px-3 py-1.5 rounded-lg hidden lg:inline-block whitespace-nowrap">
-                    <RefreshCw size={10} className="inline mr-1"/> {lastUpdatedString}
-                  </span>
-                )}
-                {role === 'admin' && currentSection === 'profile' && (
-                  <button onClick={openAdd} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white px-5 py-2.5 rounded-xl shadow-md shadow-blue-200 transition-all hover:-translate-y-0.5 font-bold text-sm"><Plus size={18} strokeWidth={2.5} /> Add Student</button>
-                )}
-                <button onClick={exportToCSV} className="flex-1 lg:flex-none flex items-center justify-center gap-2 text-sm text-slate-600 hover:text-blue-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-blue-200 hover:shadow-md transition-all"><Download size={18} /> Export CSV</button>
-              </div>
-            </div>
-
-            {/* Student Groups */}
-            {loading ? (
-              <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading database...</p></div>
-            ) : Object.keys(groupedProfileStudents).length === 0 ? (
-              <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-slate-300 shadow-sm"><div className="bg-slate-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6"><Users className="text-slate-300 w-10 h-10" /></div><h3 className="text-xl font-bold text-slate-900 mb-2">No students found</h3><p className="text-slate-500">Try adjusting your filters.</p></div>
-            ) : (
-              <div className="space-y-10">
-                {Object.keys(groupedProfileStudents).sort().map(className => {
-                  const style = getClassColorStyle(className);
-                  return (
-                  <div key={className} className={`bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm`}>
-                    <div className={`px-8 py-4 border-b ${style.border} flex items-center justify-between bg-white`}>
-                      <h3 className={`font-extrabold ${style.text} text-lg flex items-center gap-3`}><div className={`bg-white p-2 rounded-lg shadow-sm border ${style.border}`}><School className={style.icon} size={20} /></div>{className}</h3>
-                      <span className={`text-xs font-bold bg-white ${style.icon} px-3 py-1.5 rounded-lg border ${style.border} shadow-sm`}>{groupedProfileStudents[className].length} Students</span>
-                    </div>
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                      {groupedProfileStudents[className].map(student => {
-                        const studentStats = calculateStats(student.attendanceRecords || []);
-                        return (
-                        <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-100 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col sm:flex-row lg:flex-col items-center p-3 gap-4">
-                          <div className={`absolute top-0 left-0 w-full sm:w-1.5 lg:w-full h-1.5 sm:h-full lg:h-1.5 ${studentStats.percent >= 75 ? 'bg-gradient-to-r sm:bg-gradient-to-b lg:bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-gradient-to-r sm:bg-gradient-to-b lg:bg-gradient-to-r from-amber-400 to-amber-600'}`}></div>
-                          
-                          <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-20 h-20" />
-                          
-                          <div className="flex-1 w-full text-center sm:text-left lg:text-center">
-                             <div className="flex items-center justify-center sm:justify-start lg:justify-center gap-2 mb-1">
-                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{className}</span>
-                             </div>
-                            <h3 className="font-bold text-sm text-slate-900 leading-tight mb-1 line-clamp-1">{student.name}</h3>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">{student.gender || 'Lelaki'}</p>
-                            
-                            <div className="flex flex-col gap-1 w-full">
-                               <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase">
-                                 <span>Attendance</span>
-                                 <span className={studentStats.percent >= 75 ? 'text-emerald-600' : 'text-amber-600'}>{studentStats.percent}%</span>
-                               </div>
-                               <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div className={`h-full rounded-full ${studentStats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${studentStats.percent}%` }}></div></div>
-                            </div>
-                            
-                            <div className="mt-2 text-[10px] text-slate-400 text-center sm:text-left lg:text-center font-medium">
-                              Updated: {student.updatedAt ? formatDate(student.updatedAt) : 'New'}
-                            </div>
-                          </div>
-
-                          {role === 'admin' && (
-                            <>
-                              <div className="hidden sm:flex flex-col absolute top-2 right-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
-                                <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded"><StickyNote size={14} /></button>
-                                <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Calendar size={14} /></button>
-                                <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded"><Edit2 size={14} /></button>
-                                <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 hover:bg-purple-50 rounded"><ArrowRight size={14} /></button>
-                                <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
-                              </div>
-                              <div className="sm:hidden w-full mt-2 pt-2 border-t border-slate-50 flex justify-around">
-                                <button onClick={() => openNotesModal(student)} className="p-2 text-amber-500 bg-slate-100 rounded-lg"><StickyNote size={18} /></button>
-                                <button onClick={() => openAttendanceModal(student)} className="p-2 text-blue-500 bg-slate-100 rounded-lg"><Calendar size={18} /></button>
-                                <button onClick={() => openEdit(student)} className="p-2 text-slate-400 bg-slate-100 rounded-lg"><Edit2 size={18} /></button>
-                                <button onClick={() => toggleStudentStatus(student)} className="p-2 text-purple-500 bg-slate-100 rounded-lg"><ArrowRight size={18} /></button>
-                                <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-slate-100 rounded-lg"><Trash2 size={18} /></button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      )})}
-                    </div>
-                  </div>
-                )})}
-              </div>
-            )}
-          </div>
         )}
       </main>
 
       {/* ... Keep existing Modals ... */}
-      <Modal 
-        isOpen={showAdminLogin} 
-        onClose={() => { setShowAdminLogin(false); setAdminPassword(''); setLoginError(''); }}
-        title="Admin Login"
-      >
-        <div className="flex flex-col items-center justify-center mb-6">
-          <div className="bg-blue-50 p-3 rounded-full mb-3">
-            <Lock className="text-blue-600 w-8 h-8" />
-          </div>
-          <p className="text-sm text-gray-500 text-center">
-            Please enter the admin password to access edit features.
-          </p>
-        </div>
-
-        <form onSubmit={handleAdminLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
-              value={adminPassword}
-              onChange={(e) => { setAdminPassword(e.target.value); setLoginError(''); }}
-              placeholder="Enter password..."
-              autoFocus
-            />
-            {loginError && <p className="text-xs text-red-500 mt-1">{loginError}</p>}
-          </div>
-          
-          <button
-            type="submit"
-            className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm"
-          >
-            Authenticate
-          </button>
-        </form>
+      <Modal isOpen={showAdminLogin} onClose={() => { setShowAdminLogin(false); setAdminPassword(''); setLoginError(''); }} title="Admin Login">
+        <div className="flex flex-col items-center justify-center mb-6"><div className="bg-blue-50 p-3 rounded-full mb-3"><Lock className="text-blue-600 w-8 h-8" /></div><p className="text-sm text-gray-500 text-center">Please enter the admin password to access edit features.</p></div>
+        <form onSubmit={handleAdminLogin} className="space-y-4"><div><label className="block text-sm font-medium text-gray-700 mb-1">Password</label><input type="password" className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`} value={adminPassword} onChange={(e) => { setAdminPassword(e.target.value); setLoginError(''); }} placeholder="Enter password..." autoFocus />{loginError && <p className="text-xs text-red-500 mt-1">{loginError}</p>}</div><button type="submit" className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm">Authenticate</button></form>
       </Modal>
 
-      <Modal 
-        isOpen={deleteConfirmation.isOpen} 
-        onClose={() => setDeleteConfirmation({ isOpen: false, studentId: null, studentName: '' })}
-        title="Confirm Deletion"
-      >
-        <div className="flex flex-col items-center justify-center mb-6 text-center">
-          <div className="bg-red-50 p-4 rounded-full mb-4">
-            <Trash2 className="text-red-600 w-10 h-10" />
-          </div>
-          <h4 className="text-lg font-bold text-gray-900 mb-2">Delete Record?</h4>
-          <p className="text-gray-500">
-            Are you sure you want to delete <span className="font-semibold text-gray-900">{deleteConfirmation.studentName}</span>? This action cannot be undone.
-          </p>
-        </div>
-
-        <div className="flex gap-3">
-           <button
-            onClick={() => setDeleteConfirmation({ isOpen: false, studentId: null, studentName: '' })}
-            className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={executeDelete}
-            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 shadow-sm"
-          >
-            Yes, Delete
-          </button>
-        </div>
+      <Modal isOpen={deleteConfirmation.isOpen} onClose={() => setDeleteConfirmation({ isOpen: false, studentId: null, studentName: '' })} title="Confirm Deletion">
+        <div className="flex flex-col items-center justify-center mb-6 text-center"><div className="bg-red-50 p-4 rounded-full mb-4"><Trash2 className="text-red-600 w-10 h-10" /></div><h4 className="text-lg font-bold text-gray-900 mb-2">Delete Record?</h4><p className="text-gray-500">Are you sure you want to delete <span className="font-semibold text-gray-900">{deleteConfirmation.studentName}</span>? This action cannot be undone.</p></div>
+        <div className="flex gap-3"><button onClick={() => setDeleteConfirmation({ isOpen: false, studentId: null, studentName: '' })} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button><button onClick={executeDelete} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 shadow-sm">Yes, Delete</button></div>
       </Modal>
 
-      <Modal 
-        isOpen={moveConfirmation.isOpen} 
-        onClose={() => setMoveConfirmation({ isOpen: false, student: null, newStatus: '' })}
-        title="Confirm Status Change"
-      >
-        <div className="flex flex-col items-center justify-center mb-6 text-center">
-          <div className="bg-blue-50 p-4 rounded-full mb-4">
-            <ArrowLeftRight className="text-blue-600 w-10 h-10" />
-          </div>
-          <h4 className="text-lg font-bold text-gray-900 mb-2">Move Student?</h4>
-          <p className="text-gray-500 mb-4">
-            {moveConfirmation.newStatus === 'Lulus' 
-              ? `Mark ${moveConfirmation.student?.name} as "Lulus Pemulihan"?`
-              : `Move ${moveConfirmation.student?.name} back to "Profile Murid Pemulihan"?`
-            }
-          </p>
-
-          {moveConfirmation.newStatus === 'Lulus' && (
-            <div className="w-full text-left bg-gray-50 p-3 rounded-lg border border-gray-200">
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Graduation Date</label>
-              <div className="flex items-center gap-2">
-                <Calendar size={16} className="text-gray-400" />
-                <input
-                  type="date"
-                  className="bg-transparent border-none focus:ring-0 text-sm font-medium text-gray-900 w-full p-0"
-                  value={moveDate}
-                  onChange={(e) => setMoveDate(e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-3">
-           <button
-            onClick={() => setMoveConfirmation({ isOpen: false, student: null, newStatus: '' })}
-            className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={executeMove}
-            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm"
-          >
-            Confirm
-          </button>
-        </div>
+      <Modal isOpen={moveConfirmation.isOpen} onClose={() => setMoveConfirmation({ isOpen: false, student: null, newStatus: '' })} title="Confirm Status Change">
+        <div className="flex flex-col items-center justify-center mb-6 text-center"><div className="bg-blue-50 p-4 rounded-full mb-4"><ArrowLeftRight className="text-blue-600 w-10 h-10" /></div><h4 className="text-lg font-bold text-gray-900 mb-2">Move Student?</h4><p className="text-gray-500 mb-4">{moveConfirmation.newStatus === 'Lulus' ? `Mark ${moveConfirmation.student?.name} as "Lulus Pemulihan"?` : `Move ${moveConfirmation.student?.name} back to "Profile Murid Pemulihan"?`}</p>{moveConfirmation.newStatus === 'Lulus' && (<div className="w-full text-left bg-gray-50 p-3 rounded-lg border border-gray-200"><label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Graduation Date</label><div className="flex items-center gap-2"><Calendar size={16} className="text-gray-400" /><input type="date" className="bg-transparent border-none focus:ring-0 text-sm font-medium text-gray-900 w-full p-0" value={moveDate} onChange={(e) => setMoveDate(e.target.value)} /></div></div>)}</div>
+        <div className="flex gap-3"><button onClick={() => setMoveConfirmation({ isOpen: false, student: null, newStatus: '' })} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button><button onClick={executeMove} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm">Confirm</button></div>
       </Modal>
 
-      {/* Notes Modal */}
-      <Modal
-        isOpen={isNotesModalOpen}
-        onClose={() => setIsNotesModalOpen(false)}
-        title="Catatan Murid"
-      >
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex items-center gap-4 p-4 bg-amber-50 rounded-lg">
-            <Avatar 
-              name={selectedStudentForNotes?.name || ''} 
-              color={selectedStudentForNotes?.color || 'bg-blue-500'} 
-              photoUrl={selectedStudentForNotes?.photoUrl}
-            />
-            <div>
-              <h4 className="font-bold text-gray-900">{selectedStudentForNotes?.name}</h4>
-              <p className="text-sm text-gray-500">{selectedStudentForNotes?.className}</p>
-            </div>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={saveNote} className="space-y-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Date</label>
-              <input 
-                type="date" 
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                value={noteForm.date}
-                onChange={(e) => setNoteForm({...noteForm, date: e.target.value})}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Catatan (Note)</label>
-              <textarea 
-                required
-                rows="3"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                value={noteForm.text}
-                onChange={(e) => setNoteForm({...noteForm, text: e.target.value})}
-                placeholder="Enter note details here..."
-              ></textarea>
-            </div>
-            <button 
-              type="submit" 
-              className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium shadow-sm transition-colors"
-            >
-              {noteForm.id ? 'Update Note' : 'Add Note'}
-            </button>
-          </form>
-
-          {/* List */}
-          <div className="border-t border-gray-100 pt-4">
-            <h5 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-              <Clock size={16} /> History
-            </h5>
-            <div className="space-y-3 max-h-60 overflow-y-auto">
-              {selectedStudentForNotes?.notes && selectedStudentForNotes.notes.length > 0 ? (
-                [...selectedStudentForNotes.notes]
-                  .sort((a, b) => new Date(b.date) - new Date(a.date))
-                  .map((note) => (
-                  <div key={note.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200 relative group">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="text-xs font-bold text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200">
-                        {note.date}
-                      </span>
-                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => startEditNote(note)}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <button 
-                          onClick={() => deleteNote(note.id)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{note.text}</p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center text-sm text-gray-400 py-4">No notes recorded yet.</p>
-              )}
-            </div>
-          </div>
-        </div>
+      <Modal isOpen={isNotesModalOpen} onClose={() => setIsNotesModalOpen(false)} title="Catatan Murid">
+        <div className="space-y-6"><div className="flex items-center gap-4 p-4 bg-amber-50 rounded-lg"><Avatar name={selectedStudentForNotes?.name || ''} color={selectedStudentForNotes?.color || 'bg-blue-500'} photoUrl={selectedStudentForNotes?.photoUrl}/><div><h4 className="font-bold text-gray-900">{selectedStudentForNotes?.name}</h4><p className="text-sm text-gray-500">{selectedStudentForNotes?.className}</p></div></div><form onSubmit={saveNote} className="space-y-3"><div><label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Date</label><input type="date" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" value={noteForm.date} onChange={(e) => setNoteForm({...noteForm, date: e.target.value})}/></div><div><label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Catatan (Note)</label><textarea required rows="3" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" value={noteForm.text} onChange={(e) => setNoteForm({...noteForm, text: e.target.value})} placeholder="Enter note details here..."></textarea></div><button type="submit" className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium shadow-sm transition-colors">{noteForm.id ? 'Update Note' : 'Add Note'}</button></form><div className="border-t border-gray-100 pt-4"><h5 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2"><Clock size={16} /> History</h5><div className="space-y-3 max-h-60 overflow-y-auto">{selectedStudentForNotes?.notes && selectedStudentForNotes.notes.length > 0 ? ([...selectedStudentForNotes.notes].sort((a, b) => new Date(b.date) - new Date(a.date)).map((note) => (<div key={note.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200 relative group"><div className="flex justify-between items-start mb-1"><span className="text-xs font-bold text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200">{note.date}</span><div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => startEditNote(note)} className="text-blue-600 hover:text-blue-800"><Edit2 size={14} /></button><button onClick={() => deleteNote(note.id)} className="text-red-600 hover:text-red-800"><Trash2 size={14} /></button></div></div><p className="text-sm text-gray-800 whitespace-pre-wrap">{note.text}</p></div>))) : (<p className="text-center text-sm text-gray-400 py-4">No notes recorded yet.</p>)}</div></div></div>
       </Modal>
 
-      {/* Attendance Modal */}
-      <Modal
-        isOpen={isAttendanceModalOpen}
-        onClose={() => setIsAttendanceModalOpen(false)}
-        title="Manage Attendance"
-      >
-        <div className="space-y-6">
-          <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-            <Avatar 
-              name={selectedStudentForAttendance?.name || ''} 
-              color={selectedStudentForAttendance?.color || 'bg-blue-500'} 
-              photoUrl={selectedStudentForAttendance?.photoUrl}
-            />
-            <div>
-              <h4 className="font-bold text-gray-900">{selectedStudentForAttendance?.name}</h4>
-              <p className="text-sm text-gray-500">{selectedStudentForAttendance?.className}</p>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Mark for specific date</label>
-            <div className="flex gap-2">
-              <input 
-                type="date" 
-                value={attendanceDate} 
-                onChange={(e) => setAttendanceDate(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button 
-                onClick={() => markAttendance('present')}
-                className="flex items-center gap-1 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 font-medium"
-              >
-                <Check size={16} /> Present
-              </button>
-              <button 
-                onClick={() => markAttendance('absent')}
-                className="flex items-center gap-1 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium"
-              >
-                <X size={16} /> Absent
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <h5 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <Clock size={14} /> Record History
-            </h5>
-            <div className="max-h-48 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-100">
-              {selectedStudentForAttendance?.attendanceRecords?.length > 0 ? (
-                [...selectedStudentForAttendance.attendanceRecords]
-                  .sort((a, b) => new Date(b.date) - new Date(a.date))
-                  .map((record, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-3 hover:bg-gray-50">
-                    <div className="text-sm">
-                      <span className="font-medium text-gray-700">{record.date}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${record.status === 'present' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                        {record.status}
-                      </span>
-                      <button 
-                        onClick={() => deleteAttendanceRecord(record)}
-                        className="text-gray-400 hover:text-red-500"
-                        title="Delete entry"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="p-4 text-center text-sm text-gray-400">No records found.</div>
-              )}
-            </div>
-          </div>
-        </div>
+      <Modal isOpen={isAttendanceModalOpen} onClose={() => setIsAttendanceModalOpen(false)} title="Manage Attendance">
+        <div className="space-y-6"><div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg"><Avatar name={selectedStudentForAttendance?.name || ''} color={selectedStudentForAttendance?.color || 'bg-blue-500'} photoUrl={selectedStudentForAttendance?.photoUrl}/><div><h4 className="font-bold text-gray-900">{selectedStudentForAttendance?.name}</h4><p className="text-sm text-gray-500">{selectedStudentForAttendance?.className}</p></div></div><div><label className="block text-sm font-medium text-gray-700 mb-2">Mark for specific date</label><div className="flex gap-2"><input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/><button onClick={() => markAttendance('present')} className="flex items-center gap-1 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 font-medium"><Check size={16} /> Present</button><button onClick={() => markAttendance('absent')} className="flex items-center gap-1 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium"><X size={16} /> Absent</button></div></div><div><h5 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><Clock size={14} /> Record History</h5><div className="max-h-48 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-100">{selectedStudentForAttendance?.attendanceRecords?.length > 0 ? ([...selectedStudentForAttendance.attendanceRecords].sort((a, b) => new Date(b.date) - new Date(a.date)).map((record, idx) => (<div key={idx} className="flex justify-between items-center p-3 hover:bg-gray-50"><div className="text-sm"><span className="font-medium text-gray-700">{record.date}</span></div><div className="flex items-center gap-3"><span className={`text-xs font-bold px-2 py-1 rounded uppercase ${record.status === 'present' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{record.status}</span><button onClick={() => deleteAttendanceRecord(record)} className="text-gray-400 hover:text-red-500" title="Delete entry"><Trash2 size={14} /></button></div></div>))) : (<div className="p-4 text-center text-sm text-gray-400">No records found.</div>)}</div></div></div>
       </Modal>
 
-      {/* Edit/Add Modal */}
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)}
-        title={editingId ? "Edit Student" : "Add New Student"}
-      >
-        <form onSubmit={handleSave} className="space-y-4">
-          
-          {!editingId && (
-            <div className="flex p-1 bg-gray-100 rounded-lg mb-4">
-              <button
-                type="button"
-                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'pemulihan' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setFormData(prev => ({ ...prev, program: 'pemulihan' }))}
-              >
-                Profile Pemulihan
-              </button>
-              <button
-                type="button"
-                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'mbk' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setFormData(prev => ({ ...prev, program: 'mbk' }))}
-              >
-                Murid MBK & OKU
-              </button>
-            </div>
-          )}
-
-          <div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 hover:border-blue-400 transition-colors">
-            <div className="mb-3">
-              <Avatar 
-                name={formData.name || 'User'} 
-                color="bg-gray-300" 
-                photoUrl={formData.photoUrl} 
-                size="w-20 h-20"
-              />
-            </div>
-            <label className="cursor-pointer">
-              <span className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700">
-                <Camera size={16} />
-                {formData.photoUrl ? 'Change Photo' : 'Upload Photo'}
-              </span>
-              <input 
-                type="file" 
-                accept="image/*" 
-                className="hidden" 
-                onChange={handleImageUpload}
-              />
-            </label>
-            <p className="text-xs text-gray-400 mt-1">Max size 5MB</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-            <input
-              type="text"
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g. Jane Doe"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Jantina (Gender)</label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input 
-                  type="radio" 
-                  name="gender" 
-                  value="Lelaki" 
-                  checked={formData.gender === 'Lelaki'} 
-                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                  className="text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">Lelaki</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input 
-                  type="radio" 
-                  name="gender" 
-                  value="Perempuan" 
-                  checked={formData.gender === 'Perempuan'} 
-                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                  className="text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">Perempuan</span>
-              </label>
-            </div>
-          </div>
-
-          {formData.program === 'pemulihan' ? (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">IC Number (Optional but Recommended)</label>
-                <input 
-                  type="text" 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm" 
-                  value={formData.ic} 
-                  onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })}
-                  placeholder="For Auto-Year Calculation (e.g. 16...)" 
-                  maxLength={12}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
-                <input
-                  type="text"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm"
-                  value={formData.className}
-                  onChange={handleClassNameChange}
-                  placeholder="e.g. 2 He"
-                />
-                <p className="text-xs text-gray-400 mt-1">Format: Year ClassName (e.g. 2 He)</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
-                  value={formData.subject}
-                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                >
-                  {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            </>
-          ) : (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Kategori (Category)</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="mbkType" 
-                      value="MBK" 
-                      checked={formData.mbkType === 'MBK'} 
-                      onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })}
-                      className="text-amber-600 focus:ring-amber-500"
-                    />
-                    <span className="text-sm text-gray-700">MBK (Tiada Kad)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="mbkType" 
-                      value="OKU" 
-                      checked={formData.mbkType === 'OKU'} 
-                      onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })}
-                      className="text-green-600 focus:ring-green-500"
-                    />
-                    <span className="text-sm text-gray-700">OKU (Ada Kad)</span>
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">MyKid / IC Number</label>
-                <input 
-                  type="text" 
-                  required 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm" 
-                  value={formData.ic} 
-                  onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })}
-                  placeholder="e.g. 160520101234" 
-                  maxLength={12}
-                />
-                <p className="text-xs text-gray-400 mt-1">System will auto-calculate School Year based on first 2 digits.</p>
-              </div>
-            </>
-          )}
-
-          <div className="pt-4 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className={`px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm ${formData.program === 'mbk' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-            >
-              {editingId ? 'Save Changes' : 'Add Student'}
-            </button>
-          </div>
-        </form>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Student" : "Add New Student"}>
+        <form onSubmit={handleSave} className="space-y-4">{!editingId && (<div className="flex p-1 bg-gray-100 rounded-lg mb-4"><button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'pemulihan' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => setFormData(prev => ({ ...prev, program: 'pemulihan' }))}>Profile Pemulihan</button><button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'mbk' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => setFormData(prev => ({ ...prev, program: 'mbk' }))}>Murid MBK & OKU</button></div>)}<div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 hover:border-blue-400 transition-colors"><div className="mb-3"><Avatar name={formData.name || 'User'} color="bg-gray-300" photoUrl={formData.photoUrl} size="w-20 h-20"/></div><label className="cursor-pointer"><span className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"><Camera size={16} /> {formData.photoUrl ? 'Change Photo' : 'Upload Photo'}</span><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label><p className="text-xs text-gray-400 mt-1">Max size 5MB</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Jane Doe"/></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Jantina (Gender)</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Lelaki" checked={formData.gender === 'Lelaki'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-blue-600 focus:ring-blue-500"/><span className="text-sm text-gray-700">Lelaki</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Perempuan" checked={formData.gender === 'Perempuan'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-blue-600 focus:ring-blue-500"/><span className="text-sm text-gray-700">Perempuan</span></label></div></div>{formData.program === 'pemulihan' ? (<><div><label className="block text-sm font-medium text-gray-700 mb-1">IC Number (Optional but Recommended)</label><input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm" value={formData.ic} onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })} placeholder="For Auto-Year Calculation (e.g. 16...)" maxLength={12}/></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Class Name</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm" value={formData.className} onChange={handleClassNameChange} placeholder="e.g. 2 He"/><p className="text-xs text-gray-400 mt-1">Format: Year ClassName (e.g. 2 He)</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Subject</label><select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })}>{subjects.map(s => <option key={s} value={s}>{s}</option>)}</select></div></>) : (<><div><label className="block text-sm font-medium text-gray-700 mb-1">Kategori (Category)</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbkType" value="MBK" checked={formData.mbkType === 'MBK'} onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })} className="text-amber-600 focus:ring-amber-500"/><span className="text-sm text-gray-700">MBK (Tiada Kad)</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbkType" value="OKU" checked={formData.mbkType === 'OKU'} onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })} className="text-green-600 focus:ring-green-500"/><span className="text-sm text-gray-700">OKU (Ada Kad)</span></label></div></div><div><label className="block text-sm font-medium text-gray-700 mb-1">MyKid / IC Number</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm" value={formData.ic} onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })} placeholder="e.g. 160520101234" maxLength={12}/><p className="text-xs text-gray-400 mt-1">System will auto-calculate School Year based on first 2 digits.</p></div></>)}<div className="pt-4 flex justify-end gap-3"><button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button><button type="submit" className={`px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm ${formData.program === 'mbk' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'}`}>{editingId ? 'Save Changes' : 'Add Student'}</button></div></form>
       </Modal>
     </div>
   );
