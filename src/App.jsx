@@ -83,7 +83,7 @@ const Avatar = ({ name, color, photoUrl, size = "w-12 h-12" }) => {
       <img 
         src={photoUrl} 
         alt={name} 
-        className={`${size} rounded-full object-cover shadow-sm border-2 border-white ring-1 ring-gray-100`} 
+        className={`${size} rounded-full object-cover shadow-sm border-2 border-white ring-1 ring-gray-100 flex-shrink-0`} 
       />
     );
   }
@@ -96,7 +96,7 @@ const Avatar = ({ name, color, photoUrl, size = "w-12 h-12" }) => {
     .toUpperCase();
   
   return (
-    <div className={`${size} rounded-full flex items-center justify-center text-white font-bold shadow-sm border-2 border-white ring-1 ring-gray-100 ${color}`}>
+    <div className={`${size} rounded-full flex items-center justify-center text-white font-bold shadow-sm border-2 border-white ring-1 ring-gray-100 ${color} flex-shrink-0`}>
       {initials}
     </div>
   );
@@ -130,11 +130,9 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 const calculateSchoolYearFromIC = (ic) => {
   if (!ic || ic.length < 2) return null;
   const yearPrefix = parseInt(ic.substring(0, 2));
-  // Assumption: 2000s. 
   const birthYear = 2000 + yearPrefix; 
   const currentYear = new Date().getFullYear();
   const age = currentYear - birthYear;
-  // Standard Malaysia: Year 1 is 7 years old.
   return age - 6;
 };
 
@@ -148,14 +146,10 @@ const getYearFromClassString = (className) => {
 
 // 3. Master function to get Current Year
 const getStudentCurrentYear = (student) => {
-  // Priority 1: IC Number (Best for Auto-Advance)
   const icYear = calculateSchoolYearFromIC(student.ic);
   if (icYear !== null) return icYear;
-
-  // Priority 2: Class Name (Manual)
   const classYear = getYearFromClassString(student.className);
   if (classYear !== null) return classYear;
-
   return 0; // Unknown
 };
 
@@ -171,6 +165,27 @@ const calculateCurrentLulusYear = (className, graduationDate) => {
   return originalYear + yearDiff;
 };
 
+// Helper to generate a consistent pastel color for a class name
+const getClassColorStyle = (className) => {
+  const palettes = [
+    { bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-900', icon: 'text-blue-600' },
+    { bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-900', icon: 'text-emerald-600' },
+    { bg: 'bg-amber-50', border: 'border-amber-100', text: 'text-amber-900', icon: 'text-amber-600' },
+    { bg: 'bg-purple-50', border: 'border-purple-100', text: 'text-purple-900', icon: 'text-purple-600' },
+    { bg: 'bg-rose-50', border: 'border-rose-100', text: 'text-rose-900', icon: 'text-rose-600' },
+    { bg: 'bg-cyan-50', border: 'border-cyan-100', text: 'text-cyan-900', icon: 'text-cyan-600' },
+    { bg: 'bg-indigo-50', border: 'border-indigo-100', text: 'text-indigo-900', icon: 'text-indigo-600' },
+    { bg: 'bg-lime-50', border: 'border-lime-100', text: 'text-lime-900', icon: 'text-lime-600' },
+  ];
+  
+  let hash = 0;
+  for (let i = 0; i < className.length; i++) {
+    hash = className.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % palettes.length;
+  return palettes[index];
+};
+
 // --- Main App Component ---
 export default function StudentDatabaseApp() {
   const [user, setUser] = useState(null);
@@ -179,7 +194,7 @@ export default function StudentDatabaseApp() {
   
   // App State
   const [role, setRole] = useState('user'); 
-  const [currentSection, setCurrentSection] = useState('profile'); // 'profile', 'plan', 'lulus', 'stats', 'mbk'
+  const [currentSection, setCurrentSection] = useState('profile'); 
   
   // Filters
   const [profileYearFilter, setProfileYearFilter] = useState('All');
@@ -550,7 +565,7 @@ export default function StudentDatabaseApp() {
 
       if (currentSection === 'mbk') {
         if (program !== 'mbk') return false;
-        const schoolYear = calculateSchoolYearFromIC(s.ic); // FIXED HERE
+        const schoolYear = calculateSchoolYearFromIC(s.ic); 
         if (schoolYear !== null && schoolYear > 6) return false; 
         return s.name.toLowerCase().includes(profileYearFilter === 'All' ? '' : profileYearFilter.toLowerCase());
       }
@@ -562,8 +577,7 @@ export default function StudentDatabaseApp() {
         const matchSubject = statsFilters.subject === 'All' || s.subject === statsFilters.subject;
         return matchYear && matchGender && matchSubject;
       }
-      
-      return false; // Profile and Lulus handled by grouped logic now
+      return false;
     });
   }, [students, profileYearFilter, subjectFilter, currentSection, statsFilters]);
 
@@ -928,55 +942,58 @@ export default function StudentDatabaseApp() {
               <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-slate-300 shadow-sm"><div className="bg-slate-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6"><Users className="text-slate-300 w-10 h-10" /></div><h3 className="text-xl font-bold text-slate-900 mb-2">No students found</h3><p className="text-slate-500">Try adjusting your filters.</p></div>
             ) : (
               <div className="space-y-10">
-                {Object.keys(groupedProfileStudents).sort().map(className => (
-                  <div key={className} className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
-                    <div className="bg-blue-50/50 px-8 py-4 border-b border-blue-100 flex items-center justify-between backdrop-blur-sm">
-                      <h3 className="font-extrabold text-blue-900 text-lg flex items-center gap-3"><div className="bg-white p-2 rounded-lg shadow-sm border border-blue-100"><School className="text-blue-600" size={20} /></div>{className}</h3>
-                      <span className="text-xs font-bold bg-white text-blue-700 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm">{groupedProfileStudents[className].length} Students</span>
+                {Object.keys(groupedProfileStudents).sort().map(className => {
+                  const style = getClassColorStyle(className);
+                  return (
+                  <div key={className} className={`bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm`}>
+                    <div className={`sticky top-[72px] z-20 ${style.bg} px-8 py-4 border-b ${style.border} flex items-center justify-between backdrop-blur-md bg-opacity-90`}>
+                      <h3 className={`font-extrabold ${style.text} text-lg flex items-center gap-3`}><div className={`bg-white p-2 rounded-lg shadow-sm border ${style.border}`}><School className={style.icon} size={20} /></div>{className}</h3>
+                      <span className={`text-xs font-bold bg-white ${style.icon} px-3 py-1.5 rounded-lg border ${style.border} shadow-sm`}>{groupedProfileStudents[className].length} Students</span>
                     </div>
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                       {groupedProfileStudents[className].map(student => {
                         const studentStats = calculateStats(student.attendanceRecords || []);
                         return (
-                        <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl border border-slate-100 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col">
-                          <div className={`absolute top-0 left-0 w-full h-1.5 ${studentStats.percent >= 75 ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-gradient-to-r from-amber-400 to-amber-600'}`}></div>
-                          <div className="p-6 flex-1">
-                            <div className="flex justify-between items-start mb-4">
-                              <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-20 h-20" />
-                              {role === 'admin' && (
-                                <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button onClick={() => openEdit(student)} className="p-2 text-slate-400 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 rounded-lg transition-colors shadow-sm"><Edit2 size={16} /></button>
-                                  <button onClick={() => confirmDelete(student)} className="p-2 text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 rounded-lg transition-colors shadow-sm"><Trash2 size={16} /></button>
-                                </div>
-                              )}
-                            </div>
-                            <h3 className="font-bold text-lg text-slate-900 mb-1 leading-tight">{student.name}</h3>
-                            <p className="text-xs font-medium text-slate-400 mb-4 uppercase tracking-wide">{student.gender || 'Lelaki'}</p>
-                            <div className="flex items-center gap-2 text-sm font-medium text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 mb-5"><BookOpen size={16} className="text-blue-400" />{student.subject}</div>
-                            <div className="space-y-2">
-                              <div className="flex justify-between items-end"><span className="text-xs font-bold text-slate-400 uppercase">Attendance</span><div className="text-right"><span className={`text-sm font-extrabold ${studentStats.percent >= 75 ? 'text-emerald-600' : 'text-amber-600'}`}>{studentStats.percent}%</span><span className="text-[10px] text-slate-400 ml-1 font-medium">({studentStats.present}/{studentStats.total})</span></div></div>
-                              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden"><div className={`h-full rounded-full transition-all duration-500 ${studentStats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${studentStats.percent}%` }}></div></div>
+                        <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-100 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col sm:flex-row lg:flex-col items-center p-3 gap-4">
+                          {/* Compact Horizontal Layout for PC, Vertical for Mobile */}
+                          <div className={`absolute top-0 left-0 w-full sm:w-1.5 lg:w-full h-1.5 sm:h-full lg:h-1.5 ${studentStats.percent >= 75 ? 'bg-gradient-to-r sm:bg-gradient-to-b lg:bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-gradient-to-r sm:bg-gradient-to-b lg:bg-gradient-to-r from-amber-400 to-amber-600'}`}></div>
+                          
+                          <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-20 h-20" />
+                          
+                          <div className="flex-1 w-full text-center sm:text-left lg:text-center">
+                            <h3 className="font-bold text-sm text-slate-900 leading-tight mb-1 line-clamp-1">{student.name}</h3>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">{student.gender || 'Lelaki'}</p>
+                            
+                            <div className="flex flex-col gap-1 w-full">
+                               <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase">
+                                 <span>Attendance</span>
+                                 <span className={studentStats.percent >= 75 ? 'text-emerald-600' : 'text-amber-600'}>{studentStats.percent}%</span>
+                               </div>
+                               <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div className={`h-full rounded-full ${studentStats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${studentStats.percent}%` }}></div></div>
                             </div>
                           </div>
+
                           {role === 'admin' && (
-                            <div className="px-6 pb-6 pt-2 grid grid-cols-3 gap-2">
-                                <button onClick={() => openNotesModal(student)} className="py-2.5 flex items-center justify-center text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors font-bold text-xs" title="Catatan"><StickyNote size={18} /></button>
-                                <button onClick={() => openAttendanceModal(student)} className="py-2.5 flex items-center justify-center text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors font-bold text-xs" title="Attend"><Calendar size={18} /></button>
-                                <button onClick={() => toggleStudentStatus(student)} className="py-2.5 flex items-center justify-center text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors font-bold text-xs" title="Graduate"><ArrowRight size={18} /></button>
+                            <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm">
+                                <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded"><StickyNote size={14} /></button>
+                                <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Calendar size={14} /></button>
+                                <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded"><Edit2 size={14} /></button>
+                                <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 hover:bg-purple-50 rounded"><ArrowRight size={14} /></button>
+                                <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
                             </div>
                           )}
                         </div>
                       )})}
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             )}
           </div>
         )}
       </main>
 
-      {/* ... Modals (Login, Delete, Move, Notes, Attendance) are kept ... */}
+      {/* ... Keep existing Modals ... */}
       <Modal 
         isOpen={showAdminLogin} 
         onClose={() => { setShowAdminLogin(false); setAdminPassword(''); setLoginError(''); }}
