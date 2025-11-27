@@ -694,18 +694,21 @@ export default function StudentDatabaseApp() {
                   <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
                 </div>
               </div>
+
               <div className="flex gap-3 w-full lg:w-auto items-center">
                  {lastUpdatedString && (
                   <span className="text-xs font-bold text-blue-400 bg-blue-50 px-3 py-1.5 rounded-lg hidden lg:inline-block whitespace-nowrap">
                     <RefreshCw size={10} className="inline mr-1"/> {lastUpdatedString}
                   </span>
                 )}
-                {role === 'admin' && (
+                {role === 'admin' && currentSection === 'profile' && (
                   <button onClick={openAdd} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white px-5 py-2.5 rounded-xl shadow-md shadow-blue-200 transition-all hover:-translate-y-0.5 font-bold text-sm"><Plus size={18} strokeWidth={2.5} /> Add Student</button>
                 )}
                 <button onClick={exportToCSV} className="flex-1 lg:flex-none flex items-center justify-center gap-2 text-sm text-slate-600 hover:text-blue-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-blue-200 hover:shadow-md transition-all"><Download size={18} /> Export CSV</button>
               </div>
             </div>
+
+            {/* Student Groups */}
             {loading ? (
               <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading database...</p></div>
             ) : Object.keys(groupedProfileStudents).length === 0 ? (
@@ -726,13 +729,16 @@ export default function StudentDatabaseApp() {
                         return (
                         <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-100 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col sm:flex-row lg:flex-col items-center p-3 gap-4">
                           <div className={`absolute top-0 left-0 w-full sm:w-1.5 lg:w-full h-1.5 sm:h-full lg:h-1.5 ${studentStats.percent >= 75 ? 'bg-gradient-to-r sm:bg-gradient-to-b lg:bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-gradient-to-r sm:bg-gradient-to-b lg:bg-gradient-to-r from-amber-400 to-amber-600'}`}></div>
+                          
                           <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-20 h-20" />
+                          
                           <div className="flex-1 w-full text-center sm:text-left lg:text-center">
                              <div className="flex items-center justify-center sm:justify-start lg:justify-center gap-2 mb-1">
                                 <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{className}</span>
                              </div>
                             <h3 className="font-bold text-sm text-slate-900 leading-tight mb-1 line-clamp-1">{student.name}</h3>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">{student.gender || 'Lelaki'}</p>
+                            
                             <div className="flex flex-col gap-1 w-full">
                                <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase">
                                  <span>Attendance</span>
@@ -740,10 +746,12 @@ export default function StudentDatabaseApp() {
                                </div>
                                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div className={`h-full rounded-full ${studentStats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${studentStats.percent}%` }}></div></div>
                             </div>
+                            
                             <div className="mt-2 text-[10px] text-slate-400 text-center sm:text-left lg:text-center font-medium">
                               Updated: {student.updatedAt ? formatDate(student.updatedAt) : 'New'}
                             </div>
                           </div>
+
                           {role === 'admin' && (
                             <>
                               <div className="hidden sm:flex flex-col absolute top-2 right-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm">
@@ -754,11 +762,11 @@ export default function StudentDatabaseApp() {
                                 <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
                               </div>
                               <div className="sm:hidden w-full mt-2 pt-2 border-t border-slate-50 flex justify-around">
-                                <button onClick={() => openNotesModal(student)} className="p-2 text-amber-500 bg-amber-50 rounded-lg"><StickyNote size={18} /></button>
-                                <button onClick={() => openAttendanceModal(student)} className="p-2 text-blue-500 bg-blue-50 rounded-lg"><Calendar size={18} /></button>
-                                <button onClick={() => openEdit(student)} className="p-2 text-slate-400 bg-slate-50 rounded-lg"><Edit2 size={18} /></button>
-                                <button onClick={() => toggleStudentStatus(student)} className="p-2 text-purple-500 bg-purple-50 rounded-lg"><ArrowRight size={18} /></button>
-                                <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-red-50 rounded-lg"><Trash2 size={18} /></button>
+                                <button onClick={() => openNotesModal(student)} className="p-2 text-amber-500 bg-slate-100 rounded-lg"><StickyNote size={18} /></button>
+                                <button onClick={() => openAttendanceModal(student)} className="p-2 text-blue-500 bg-slate-100 rounded-lg"><Calendar size={18} /></button>
+                                <button onClick={() => openEdit(student)} className="p-2 text-slate-400 bg-slate-100 rounded-lg"><Edit2 size={18} /></button>
+                                <button onClick={() => toggleStudentStatus(student)} className="p-2 text-purple-500 bg-slate-100 rounded-lg"><ArrowRight size={18} /></button>
+                                <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-slate-100 rounded-lg"><Trash2 size={18} /></button>
                               </div>
                             </>
                           )}
@@ -794,6 +802,7 @@ export default function StudentDatabaseApp() {
                             <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" />
                             <div><h4 className="font-bold text-slate-900 text-base leading-tight mb-1">{student.name}</h4><span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{student.gender}</span></div>
                           </div>
+                          
                           {role === 'admin' && (
                             <>
                               <div className="hidden sm:flex absolute top-4 right-4 gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
@@ -801,8 +810,8 @@ export default function StudentDatabaseApp() {
                                  <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded transition-colors"><Trash2 size={16} /></button>
                               </div>
                               <div className="sm:hidden w-full mt-4 pt-4 border-t border-slate-50 flex justify-around">
-                                 <button onClick={() => openNotesModal(student)} className="p-2 text-amber-500 bg-amber-50 rounded-lg"><StickyNote size={18} /></button>
-                                 <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-red-50 rounded-lg"><Trash2 size={18} /></button>
+                                 <button onClick={() => openNotesModal(student)} className="p-2 text-amber-500 bg-slate-100 rounded-lg"><StickyNote size={18} /></button>
+                                 <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-slate-100 rounded-lg"><Trash2 size={18} /></button>
                               </div>
                             </>
                           )}
@@ -834,10 +843,12 @@ export default function StudentDatabaseApp() {
                     <div className="flex justify-between items-start mb-6">
                       <Avatar name={student.name} color={student.color || 'bg-indigo-500'} photoUrl={student.photoUrl} size="w-20 h-20"/>
                       {role === 'admin' && (
-                        <div className="hidden sm:flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openEdit(student)} className="p-2 text-slate-400 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
-                          <button onClick={() => confirmDelete(student)} className="p-2 text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
-                        </div>
+                        <>
+                          <div className="hidden sm:flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => openEdit(student)} className="p-2 text-slate-400 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
+                            <button onClick={() => confirmDelete(student)} className="p-2 text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                          </div>
+                        </>
                       )}
                     </div>
                     <h3 className="font-bold text-lg text-slate-900 mb-2 leading-tight">{student.name}</h3>
@@ -847,8 +858,8 @@ export default function StudentDatabaseApp() {
                     </div>
                     {role === 'admin' && (
                         <div className="sm:hidden w-full mt-4 pt-4 border-t border-slate-50 flex justify-around">
-                           <button onClick={() => openEdit(student)} className="p-2 text-slate-400 bg-slate-50 rounded-lg"><Edit2 size={18} /></button>
-                           <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-red-50 rounded-lg"><Trash2 size={18} /></button>
+                           <button onClick={() => openEdit(student)} className="p-2 text-slate-400 bg-slate-100 rounded-lg"><Edit2 size={18} /></button>
+                           <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-slate-100 rounded-lg"><Trash2 size={18} /></button>
                         </div>
                     )}
                   </div>
