@@ -36,7 +36,8 @@ import {
   CreditCard,
   ChevronDown,
   Menu,
-  BookOpenCheck
+  BookOpenCheck,
+  RefreshCw
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -137,7 +138,7 @@ const calculateSchoolYearFromIC = (ic) => {
 
 const getYearFromClassString = (className) => {
   if (!className) return null;
-  const yearStr = className.split(' ')[0]; // "2 Cerdik" -> "2"
+  const yearStr = className.split(' ')[0]; 
   const yearInt = parseInt(yearStr);
   return isNaN(yearInt) ? null : yearInt;
 };
@@ -182,12 +183,25 @@ const getClassColorStyle = (className) => {
   return palettes[index];
 };
 
-// Format Timestamp
-const formatDate = (timestamp) => {
-  if (!timestamp) return '';
-  // Check if it's a Firebase timestamp object
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+// Calculate Last Updated for a specific list of students
+const calculateLastUpdated = (studentList) => {
+  if (!studentList || studentList.length === 0) return null;
+  
+  let maxDate = 0;
+  studentList.forEach(student => {
+    if (student.updatedAt) {
+      const timestamp = student.updatedAt.toDate ? student.updatedAt.toDate().getTime() : new Date(student.updatedAt).getTime();
+      if (timestamp > maxDate) maxDate = timestamp;
+    }
+  });
+  
+  if (maxDate === 0) return null;
+  
+  const date = new Date(maxDate);
+  return date.toLocaleDateString('en-GB', { 
+    day: 'numeric', month: 'short', year: 'numeric', 
+    hour: '2-digit', minute: '2-digit' 
+  });
 };
 
 // --- Main App Component ---
@@ -196,14 +210,17 @@ export default function StudentDatabaseApp() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  // App State
   const [role, setRole] = useState('user'); 
   const [currentSection, setCurrentSection] = useState('profile'); 
   
+  // Filters
   const [profileYearFilter, setProfileYearFilter] = useState('All');
   const [classFilter, setClassFilter] = useState('All');
   const [subjectFilter, setSubjectFilter] = useState('All');
   const [statsFilters, setStatsFilters] = useState({ year: 'All', gender: 'All', subject: 'All' });
 
+  // Auth & Modals
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -320,6 +337,7 @@ export default function StudentDatabaseApp() {
         photoUrl: formData.photoUrl || '', updatedAt: serverTimestamp(), ic: formData.ic || ''
       };
       
+      // Save fields based on selection
       if (formData.program === 'pemulihan') {
         dataToSave.className = formData.className; 
         dataToSave.subject = formData.subject;
@@ -501,6 +519,7 @@ export default function StudentDatabaseApp() {
       if (s.status === 'Lulus') return false;
       
       const studentYear = getStudentCurrentYear(s);
+      // Logic: Only show Year 1, 2, 3
       if (studentYear > 3) return false;
 
       const matchesYear = profileYearFilter === 'All' || studentYear === parseInt(profileYearFilter);
@@ -529,9 +548,10 @@ export default function StudentDatabaseApp() {
       if (s.status === 'Lulus') return false;
 
       const studentYear = getStudentCurrentYear(s);
+      // Logic: Only show Year 4, 5, 6
       if (studentYear < 4 || studentYear > 6) return false;
 
-      return true; 
+      return true; // PLaN ignores typical profile filters for simplicity, or we can add them back
     });
 
     const groups = {};
@@ -579,9 +599,25 @@ export default function StudentDatabaseApp() {
     });
   }, [students, profileYearFilter, subjectFilter, currentSection, statsFilters]);
 
+  // Last Updated calculation for the current tab
+  const lastUpdatedString = useMemo(() => {
+    let list = [];
+    if (currentSection === 'profile') {
+       Object.values(groupedProfileStudents).forEach(group => list = [...list, ...group]);
+    } else if (currentSection === 'plan') {
+       Object.values(groupedPlanStudents).forEach(group => list = [...list, ...group]);
+    } else if (currentSection === 'lulus') {
+       Object.values(groupedLulusStudents).forEach(group => list = [...list, ...group.students]);
+    } else {
+       list = filteredStudents;
+    }
+    return calculateLastUpdated(list);
+  }, [currentSection, groupedProfileStudents, groupedPlanStudents, groupedLulusStudents, filteredStudents]);
+
   // --- Render ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 text-slate-800 font-sans selection:bg-indigo-100">
+      {/* Navbar */}
       <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
@@ -593,6 +629,7 @@ export default function StudentDatabaseApp() {
                 Profile Murid <span className="text-indigo-600">Digital</span>
               </span>
             </div>
+            
             <div className="flex items-center gap-3">
               <div className="bg-slate-100/80 backdrop-blur-sm rounded-full p-1 flex items-center text-xs font-bold shadow-inner">
                 <button 
@@ -674,6 +711,7 @@ export default function StudentDatabaseApp() {
         {/* STATS VIEW */}
         {currentSection === 'stats' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Same Stats View as before */}
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Filter size={20} className="text-indigo-500" /> Filter Database
@@ -752,7 +790,12 @@ export default function StudentDatabaseApp() {
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
               <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight">Senarai Murid MBK</h2>
-              <div className="flex gap-3 w-full md:w-auto">
+              <div className="flex gap-3 w-full md:w-auto items-center">
+                 {lastUpdatedString && (
+                  <span className="text-xs font-bold text-indigo-400 bg-indigo-50 px-3 py-1.5 rounded-lg hidden md:inline-block">
+                    Last updated: {lastUpdatedString}
+                  </span>
+                )}
                 {role === 'admin' && (
                   <button onClick={openAdd} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white px-5 py-2.5 rounded-xl shadow-md shadow-indigo-200 transition-all hover:-translate-y-0.5 font-bold text-sm">
                     <Plus size={18} strokeWidth={2.5} /> Add Student
@@ -853,10 +896,8 @@ export default function StudentDatabaseApp() {
               </div>
             )}
           </div>
-        )}
-
-        {/* PLaN VIEW */}
-        {currentSection === 'plan' && (
+        ) : currentSection === 'plan' ? (
+          /* --- PLaN VIEW (Year 4-6) --- */
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
              <div className="flex justify-between items-center mb-8">
               <h2 className="text-2xl font-extrabold text-blue-900 tracking-tight">PLaN (Thn 4-6)</h2>
@@ -901,10 +942,8 @@ export default function StudentDatabaseApp() {
               </div>
             )}
           </div>
-        )}
-
-        {/* PROFILE VIEW (Grouped by Class) */}
-        {currentSection === 'profile' && (
+        ) : (
+          /* --- PROFILE VIEW (Year 1-3) --- */
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col lg:flex-row gap-4 mb-8 justify-between items-start lg:items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
               <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
@@ -929,7 +968,12 @@ export default function StudentDatabaseApp() {
                 </div>
               </div>
 
-              <div className="flex gap-3 w-full lg:w-auto">
+              <div className="flex gap-3 w-full lg:w-auto items-center">
+                 {lastUpdatedString && (
+                  <span className="text-xs font-bold text-blue-400 bg-blue-50 px-3 py-1.5 rounded-lg hidden lg:inline-block whitespace-nowrap">
+                    <RefreshCw size={10} className="inline mr-1"/> {lastUpdatedString}
+                  </span>
+                )}
                 {role === 'admin' && currentSection === 'profile' && (
                   <button onClick={openAdd} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white px-5 py-2.5 rounded-xl shadow-md shadow-blue-200 transition-all hover:-translate-y-0.5 font-bold text-sm"><Plus size={18} strokeWidth={2.5} /> Add Student</button>
                 )}
@@ -937,6 +981,7 @@ export default function StudentDatabaseApp() {
               </div>
             </div>
 
+            {/* Student Groups */}
             {loading ? (
               <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading database...</p></div>
             ) : Object.keys(groupedProfileStudents).length === 0 ? (
@@ -947,7 +992,7 @@ export default function StudentDatabaseApp() {
                   const style = getClassColorStyle(className);
                   return (
                   <div key={className} className={`bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm`}>
-                    <div className={`sticky top-[64px] z-20 ${style.bg} px-8 py-4 border-b ${style.border} flex items-center justify-between bg-opacity-100`}>
+                    <div className={`px-8 py-4 border-b ${style.border} flex items-center justify-between bg-white`}>
                       <h3 className={`font-extrabold ${style.text} text-lg flex items-center gap-3`}><div className={`bg-white p-2 rounded-lg shadow-sm border ${style.border}`}><School className={style.icon} size={20} /></div>{className}</h3>
                       <span className={`text-xs font-bold bg-white ${style.icon} px-3 py-1.5 rounded-lg border ${style.border} shadow-sm`}>{groupedProfileStudents[className].length} Students</span>
                     </div>
@@ -956,12 +1001,14 @@ export default function StudentDatabaseApp() {
                         const studentStats = calculateStats(student.attendanceRecords || []);
                         return (
                         <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-100 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col sm:flex-row lg:flex-col items-center p-3 gap-4">
-                          {/* Compact Horizontal Layout for PC, Vertical for Mobile */}
                           <div className={`absolute top-0 left-0 w-full sm:w-1.5 lg:w-full h-1.5 sm:h-full lg:h-1.5 ${studentStats.percent >= 75 ? 'bg-gradient-to-r sm:bg-gradient-to-b lg:bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-gradient-to-r sm:bg-gradient-to-b lg:bg-gradient-to-r from-amber-400 to-amber-600'}`}></div>
                           
                           <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-20 h-20" />
                           
                           <div className="flex-1 w-full text-center sm:text-left lg:text-center">
+                             <div className="flex items-center justify-center sm:justify-start lg:justify-center gap-2 mb-1">
+                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{className}</span>
+                             </div>
                             <h3 className="font-bold text-sm text-slate-900 leading-tight mb-1 line-clamp-1">{student.name}</h3>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">{student.gender || 'Lelaki'}</p>
                             
@@ -998,7 +1045,7 @@ export default function StudentDatabaseApp() {
         )}
       </main>
 
-      {/* ... Modals (Login, Delete, Move, Notes, Attendance, Edit/Add) ... */}
+      {/* ... Modals kept ... */}
       <Modal 
         isOpen={showAdminLogin} 
         onClose={() => { setShowAdminLogin(false); setAdminPassword(''); setLoginError(''); }}
