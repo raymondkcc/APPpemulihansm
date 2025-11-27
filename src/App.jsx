@@ -117,11 +117,17 @@ const Modal = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-// --- Helper Functions ---
+// --- Helper Functions (Safeguarded against crashes) ---
 
 const calculateSchoolYearFromIC = (ic) => {
-  if (!ic || ic.length < 2) return null;
-  const yearPrefix = parseInt(ic.substring(0, 2));
+  if (!ic) return null;
+  // Ensure IC is treated as string to prevent .substring() crashes
+  const icStr = String(ic);
+  if (icStr.length < 2) return null;
+  
+  const yearPrefix = parseInt(icStr.substring(0, 2));
+  if (isNaN(yearPrefix)) return null;
+
   const birthYear = 2000 + yearPrefix; 
   const currentYear = new Date().getFullYear();
   const age = currentYear - birthYear;
@@ -130,7 +136,8 @@ const calculateSchoolYearFromIC = (ic) => {
 
 const getYearFromClassString = (className) => {
   if (!className) return null;
-  const yearStr = className.split(' ')[0]; 
+  const clsStr = String(className); // Safety cast
+  const yearStr = clsStr.split(' ')[0]; 
   const yearInt = parseInt(yearStr);
   return isNaN(yearInt) ? null : yearInt;
 };
@@ -156,6 +163,7 @@ const calculateCurrentLulusYear = (className, graduationDate) => {
 };
 
 const getClassColorStyle = (className) => {
+  const safeClassName = String(className || 'Unknown'); // Safety cast
   const palettes = [
     { bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-900', icon: 'text-blue-600' },
     { bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-900', icon: 'text-emerald-600' },
@@ -168,8 +176,8 @@ const getClassColorStyle = (className) => {
   ];
   
   let hash = 0;
-  for (let i = 0; i < className.length; i++) {
-    hash = className.charCodeAt(i) + ((hash << 5) - hash);
+  for (let i = 0; i < safeClassName.length; i++) {
+    hash = safeClassName.charCodeAt(i) + ((hash << 5) - hash);
   }
   const index = Math.abs(hash) % palettes.length;
   return palettes[index];
@@ -182,8 +190,19 @@ const calculateLastUpdated = (studentList) => {
   let maxDate = 0;
   studentList.forEach(student => {
     if (student.updatedAt) {
-      const timestamp = student.updatedAt.toDate ? student.updatedAt.toDate().getTime() : new Date(student.updatedAt).getTime();
-      if (timestamp > maxDate) maxDate = timestamp;
+      // Handle both Firestore Timestamp objects and standard Date strings/objects
+      let timestamp = 0;
+      try {
+        if (student.updatedAt.toDate) {
+          timestamp = student.updatedAt.toDate().getTime();
+        } else {
+          timestamp = new Date(student.updatedAt).getTime();
+        }
+      } catch (e) {
+        timestamp = 0;
+      }
+      
+      if (!isNaN(timestamp) && timestamp > maxDate) maxDate = timestamp;
     }
   });
   
@@ -194,6 +213,17 @@ const calculateLastUpdated = (studentList) => {
     day: 'numeric', month: 'short', year: 'numeric', 
     hour: '2-digit', minute: '2-digit' 
   });
+};
+
+// Format Timestamp for display
+const formatDate = (timestamp) => {
+  if (!timestamp) return '';
+  try {
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch (e) {
+    return '';
+  }
 };
 
 // --- Main App Component ---
