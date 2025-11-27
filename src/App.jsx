@@ -2,11 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, 
   Plus, 
-  Search, 
   Edit2, 
   Trash2, 
   Shield, 
-  User as UserIcon, 
   Download, 
   CheckCircle, 
   XCircle,
@@ -14,9 +12,7 @@ import {
   BookOpen,
   PieChart,
   Camera,
-  Upload,
   Lock,
-  LogOut,
   ArrowRight,
   RotateCcw,
   Calendar,
@@ -40,7 +36,6 @@ import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
   signInAnonymously, 
-  signInWithCustomToken,
   onAuthStateChanged 
 } from 'firebase/auth';
 import { 
