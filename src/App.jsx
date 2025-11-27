@@ -449,7 +449,9 @@ export default function StudentDatabaseApp() {
 
   const exportToCSV = () => {
     const headers = ["ID,Name,Program,IC,Gender,MBK_Type,Class,Subject,Status,GraduationDate"];
-    const rows = filteredStudents.map(s => `${s.id},"${s.name}","${s.program || 'pemulihan'}",${s.ic || ''},${s.gender || 'Lelaki'},${s.mbkType || ''},"${s.className || ''}",${s.subject || ''},${s.status || 'Active'},${s.graduationDate || ''}`);
+    const rows = filteredStudents.map(s => {
+      return `${s.id},"${s.name}","${s.program || 'pemulihan'}",${s.ic || ''},${s.gender || 'Lelaki'},${s.mbkType || ''},"${s.className || ''}",${s.subject || ''},${s.status || 'Active'},${s.graduationDate || ''}`;
+    });
     const csvContent = "data:text/csv;charset=utf-8," + headers.concat(rows).join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -548,7 +550,7 @@ export default function StudentDatabaseApp() {
 
       if (currentSection === 'mbk') {
         if (program !== 'mbk') return false;
-        const schoolYear = calculateSchoolYear(s.ic);
+        const schoolYear = calculateSchoolYearFromIC(s.ic); // FIXED HERE
         if (schoolYear !== null && schoolYear > 6) return false; 
         return s.name.toLowerCase().includes(profileYearFilter === 'All' ? '' : profileYearFilter.toLowerCase());
       }
@@ -560,7 +562,8 @@ export default function StudentDatabaseApp() {
         const matchSubject = statsFilters.subject === 'All' || s.subject === statsFilters.subject;
         return matchYear && matchGender && matchSubject;
       }
-      return false;
+      
+      return false; // Profile and Lulus handled by grouped logic now
     });
   }, [students, profileYearFilter, subjectFilter, currentSection, statsFilters]);
 
@@ -1091,12 +1094,14 @@ export default function StudentDatabaseApp() {
         </div>
       </Modal>
 
+      {/* Notes Modal */}
       <Modal
         isOpen={isNotesModalOpen}
         onClose={() => setIsNotesModalOpen(false)}
         title="Catatan Murid"
       >
         <div className="space-y-6">
+          {/* Header */}
           <div className="flex items-center gap-4 p-4 bg-amber-50 rounded-lg">
             <Avatar 
               name={selectedStudentForNotes?.name || ''} 
@@ -1109,6 +1114,7 @@ export default function StudentDatabaseApp() {
             </div>
           </div>
 
+          {/* Form */}
           <form onSubmit={saveNote} className="space-y-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Date</label>
@@ -1139,6 +1145,7 @@ export default function StudentDatabaseApp() {
             </button>
           </form>
 
+          {/* List */}
           <div className="border-t border-gray-100 pt-4">
             <h5 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
               <Clock size={16} /> History
@@ -1179,6 +1186,7 @@ export default function StudentDatabaseApp() {
         </div>
       </Modal>
 
+      {/* Attendance Modal */}
       <Modal
         isOpen={isAttendanceModalOpen}
         onClose={() => setIsAttendanceModalOpen(false)}
@@ -1256,6 +1264,7 @@ export default function StudentDatabaseApp() {
         </div>
       </Modal>
 
+      {/* Edit/Add Modal */}
       <Modal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)}
