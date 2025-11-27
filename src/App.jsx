@@ -27,12 +27,9 @@ import {
   BarChart3,
   ArrowLeftRight,
   Accessibility,
-  Clock3,
   School,
   StickyNote,
-  FileText,
   ExternalLink,
-  Copy,
   CreditCard,
   ChevronDown,
   Menu,
@@ -1045,7 +1042,7 @@ export default function StudentDatabaseApp() {
         )}
       </main>
 
-      {/* ... Modals kept ... */}
+      {/* ... Keep existing Modals ... */}
       <Modal 
         isOpen={showAdminLogin} 
         onClose={() => { setShowAdminLogin(false); setAdminPassword(''); setLoginError(''); }}
