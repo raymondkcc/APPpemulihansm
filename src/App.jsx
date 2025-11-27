@@ -126,19 +126,15 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 
 // --- Helper Functions ---
 
-// 1. Calculate Year from IC (Accurate Auto-Advance)
 const calculateSchoolYearFromIC = (ic) => {
   if (!ic || ic.length < 2) return null;
   const yearPrefix = parseInt(ic.substring(0, 2));
-  // Assumption: 2000s. 
   const birthYear = 2000 + yearPrefix; 
   const currentYear = new Date().getFullYear();
   const age = currentYear - birthYear;
-  // Standard Malaysia: Year 1 is 7 years old.
   return age - 6;
 };
 
-// 2. Calculate Year from Class Name string (Fallback)
 const getYearFromClassString = (className) => {
   if (!className) return null;
   const yearStr = className.split(' ')[0]; // "2 Cerdik" -> "2"
@@ -146,17 +142,12 @@ const getYearFromClassString = (className) => {
   return isNaN(yearInt) ? null : yearInt;
 };
 
-// 3. Master function to get Current Year
 const getStudentCurrentYear = (student) => {
-  // Priority 1: IC Number (Best for Auto-Advance)
   const icYear = calculateSchoolYearFromIC(student.ic);
   if (icYear !== null) return icYear;
-
-  // Priority 2: Class Name (Manual)
   const classYear = getYearFromClassString(student.className);
   if (classYear !== null) return classYear;
-
-  return 0; // Unknown
+  return 0; 
 };
 
 const calculateCurrentLulusYear = (className, graduationDate) => {
@@ -171,7 +162,6 @@ const calculateCurrentLulusYear = (className, graduationDate) => {
   return originalYear + yearDiff;
 };
 
-// Helper to generate a consistent pastel color for a class name
 const getClassColorStyle = (className) => {
   const palettes = [
     { bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-900', icon: 'text-blue-600' },
@@ -192,23 +182,28 @@ const getClassColorStyle = (className) => {
   return palettes[index];
 };
 
+// Format Timestamp
+const formatDate = (timestamp) => {
+  if (!timestamp) return '';
+  // Check if it's a Firebase timestamp object
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
 // --- Main App Component ---
 export default function StudentDatabaseApp() {
   const [user, setUser] = useState(null);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // App State
   const [role, setRole] = useState('user'); 
-  const [currentSection, setCurrentSection] = useState('profile'); // 'profile', 'plan', 'lulus', 'stats', 'mbk'
+  const [currentSection, setCurrentSection] = useState('profile'); 
   
-  // Filters
   const [profileYearFilter, setProfileYearFilter] = useState('All');
   const [classFilter, setClassFilter] = useState('All');
   const [subjectFilter, setSubjectFilter] = useState('All');
   const [statsFilters, setStatsFilters] = useState({ year: 'All', gender: 'All', subject: 'All' });
 
-  // Auth & Modals
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -325,7 +320,6 @@ export default function StudentDatabaseApp() {
         photoUrl: formData.photoUrl || '', updatedAt: serverTimestamp(), ic: formData.ic || ''
       };
       
-      // Save fields based on selection
       if (formData.program === 'pemulihan') {
         dataToSave.className = formData.className; 
         dataToSave.subject = formData.subject;
@@ -507,7 +501,6 @@ export default function StudentDatabaseApp() {
       if (s.status === 'Lulus') return false;
       
       const studentYear = getStudentCurrentYear(s);
-      // Logic: Only show Year 1, 2, 3
       if (studentYear > 3) return false;
 
       const matchesYear = profileYearFilter === 'All' || studentYear === parseInt(profileYearFilter);
@@ -536,10 +529,9 @@ export default function StudentDatabaseApp() {
       if (s.status === 'Lulus') return false;
 
       const studentYear = getStudentCurrentYear(s);
-      // Logic: Only show Year 4, 5, 6
       if (studentYear < 4 || studentYear > 6) return false;
 
-      return true; // PLaN ignores typical profile filters for simplicity, or we can add them back
+      return true; 
     });
 
     const groups = {};
@@ -590,7 +582,6 @@ export default function StudentDatabaseApp() {
   // --- Render ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 text-slate-800 font-sans selection:bg-indigo-100">
-      {/* Navbar */}
       <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
@@ -602,7 +593,6 @@ export default function StudentDatabaseApp() {
                 Profile Murid <span className="text-indigo-600">Digital</span>
               </span>
             </div>
-            
             <div className="flex items-center gap-3">
               <div className="bg-slate-100/80 backdrop-blur-sm rounded-full p-1 flex items-center text-xs font-bold shadow-inner">
                 <button 
@@ -628,7 +618,6 @@ export default function StudentDatabaseApp() {
         
         {/* Section Navigation */}
         <div className="flex justify-center mb-8">
-          
           <div className="sm:hidden w-full">
             <div className="relative">
               <select
@@ -682,10 +671,9 @@ export default function StudentDatabaseApp() {
 
         {/* --- View Logic --- */}
         
-        {currentSection === 'stats' ? (
-          /* --- STATISTICS VIEW --- */
+        {/* STATS VIEW */}
+        {currentSection === 'stats' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Same Stats View as before */}
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Filter size={20} className="text-indigo-500" /> Filter Database
@@ -757,8 +745,10 @@ export default function StudentDatabaseApp() {
               </div>
             )}
           </div>
-        ) : currentSection === 'mbk' ? (
-          /* --- MBK & OKU VIEW --- */
+        )}
+
+        {/* MBK VIEW */}
+        {currentSection === 'mbk' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
               <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight">Senarai Murid MBK</h2>
@@ -815,8 +805,10 @@ export default function StudentDatabaseApp() {
               </div>
             )}
           </div>
-        ) : currentSection === 'lulus' ? (
-          /* --- LULUS VIEW --- */
+        )}
+
+        {/* LULUS VIEW */}
+        {currentSection === 'lulus' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
              <div className="flex justify-between items-center mb-8">
               <h2 className="text-2xl font-extrabold text-purple-900 tracking-tight">Graduates (Lulus)</h2>
@@ -861,8 +853,10 @@ export default function StudentDatabaseApp() {
               </div>
             )}
           </div>
-        ) : currentSection === 'plan' ? (
-          /* --- PLaN VIEW (Year 4-6) --- */
+        )}
+
+        {/* PLaN VIEW */}
+        {currentSection === 'plan' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
              <div className="flex justify-between items-center mb-8">
               <h2 className="text-2xl font-extrabold text-blue-900 tracking-tight">PLaN (Thn 4-6)</h2>
@@ -870,7 +864,6 @@ export default function StudentDatabaseApp() {
                 <button onClick={exportToCSV} className="flex items-center gap-2 text-sm text-slate-600 hover:text-blue-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-blue-200 hover:shadow-md transition-all"><Download size={18} /> Export CSV</button>
               </div>
             </div>
-
             {loading ? (
               <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading...</p></div>
             ) : Object.keys(groupedPlanStudents).length === 0 ? (
@@ -908,8 +901,10 @@ export default function StudentDatabaseApp() {
               </div>
             )}
           </div>
-        ) : (
-          /* --- PROFILE VIEW (Year 1-3) --- */
+        )}
+
+        {/* PROFILE VIEW (Grouped by Class) */}
+        {currentSection === 'profile' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col lg:flex-row gap-4 mb-8 justify-between items-start lg:items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
               <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
@@ -942,7 +937,6 @@ export default function StudentDatabaseApp() {
               </div>
             </div>
 
-            {/* Student Groups */}
             {loading ? (
               <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading database...</p></div>
             ) : Object.keys(groupedProfileStudents).length === 0 ? (
@@ -953,7 +947,7 @@ export default function StudentDatabaseApp() {
                   const style = getClassColorStyle(className);
                   return (
                   <div key={className} className={`bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm`}>
-                    <div className={`sticky top-[72px] z-20 ${style.bg} px-8 py-4 border-b ${style.border} flex items-center justify-between backdrop-blur-md bg-opacity-90`}>
+                    <div className={`sticky top-[64px] z-20 ${style.bg} px-8 py-4 border-b ${style.border} flex items-center justify-between bg-opacity-100`}>
                       <h3 className={`font-extrabold ${style.text} text-lg flex items-center gap-3`}><div className={`bg-white p-2 rounded-lg shadow-sm border ${style.border}`}><School className={style.icon} size={20} /></div>{className}</h3>
                       <span className={`text-xs font-bold bg-white ${style.icon} px-3 py-1.5 rounded-lg border ${style.border} shadow-sm`}>{groupedProfileStudents[className].length} Students</span>
                     </div>
@@ -978,6 +972,10 @@ export default function StudentDatabaseApp() {
                                </div>
                                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div className={`h-full rounded-full ${studentStats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${studentStats.percent}%` }}></div></div>
                             </div>
+                            
+                            <div className="mt-2 text-[10px] text-slate-400 text-center sm:text-left lg:text-center font-medium">
+                              Updated: {student.updatedAt ? formatDate(student.updatedAt) : 'New'}
+                            </div>
                           </div>
 
                           {role === 'admin' && (
@@ -1000,7 +998,7 @@ export default function StudentDatabaseApp() {
         )}
       </main>
 
-      {/* ... Keep existing Modals ... */}
+      {/* ... Modals (Login, Delete, Move, Notes, Attendance, Edit/Add) ... */}
       <Modal 
         isOpen={showAdminLogin} 
         onClose={() => { setShowAdminLogin(false); setAdminPassword(''); setLoginError(''); }}
