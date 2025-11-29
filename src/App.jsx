@@ -685,37 +685,34 @@ export default function StudentDatabaseApp() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Section Navigation */}
+        {/* Section Navigation - Unified Horizontal Scroll */}
         <div className="flex justify-center mb-8">
-          <div className="sm:hidden w-full">
-            <div className="relative">
-              <select
-                className="block w-full appearance-none rounded-xl border-slate-200 bg-white py-3 pl-4 pr-10 text-base font-bold text-slate-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                value={currentSection}
-                onChange={(e) => {
-                   const tabId = e.target.value;
-                   setCurrentSection(tabId);
-                   if (tabId === 'profile') { setProfileYearFilter('All'); setClassFilter('All'); }
-                   if (tabId === 'mbk') setProfileYearFilter('');
-                }}
-              >
-                <option value="profile">Profile Pemulihan (Thn 1-3)</option>
-                <option value="plan">PLaN (Thn 4-6)</option>
-                <option value="mbk">Murid MBK & OKU</option>
-                <option value="lulus">Lulus Pemulihan</option>
-                <option value="stats">Statistik</option>
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500"><Menu size={20} /></div>
+          <div className="w-full overflow-x-auto pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 flex sm:justify-center">
+            <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 gap-1 min-w-max">
+              {[
+                { id: 'profile', label: 'Profile Pemulihan' },
+                { id: 'plan', label: 'PLaN' },
+                { id: 'mbk', label: 'Murid MBK & OKU' },
+                { id: 'lulus', label: 'Lulus' },
+                { id: 'stats', label: 'Statistik' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => { 
+                    setCurrentSection(tab.id); 
+                    if (tab.id === 'profile') { setProfileYearFilter('All'); setClassFilter('All'); }
+                    if (tab.id === 'mbk') setProfileYearFilter('');
+                  }}
+                  className={`px-4 sm:px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 whitespace-nowrap ${
+                    currentSection === tab.id
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
-          </div>
-          <div className="hidden sm:inline-flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 gap-1">
-            {[{ id: 'profile', label: 'Profile Pemulihan' }, { id: 'plan', label: 'PLaN' }, { id: 'mbk', label: 'Murid MBK & OKU' }, { id: 'lulus', label: 'Lulus' }, { id: 'stats', label: 'Statistik' }].map(tab => (
-              <button key={tab.id} onClick={() => { 
-                  setCurrentSection(tab.id); 
-                  if (tab.id === 'profile') { setProfileYearFilter('All'); setClassFilter('All'); }
-                  if (tab.id === 'mbk') setProfileYearFilter('');
-                }} className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 whitespace-nowrap ${currentSection === tab.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>{tab.label}</button>
-            ))}
           </div>
         </div>
 
