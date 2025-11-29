@@ -182,6 +182,15 @@ const getClassColorStyle = (className) => {
   return palettes[index];
 };
 
+const getSubjectBadgeColor = (subject) => {
+  switch (subject) {
+    case 'Pemulihan BM': return 'bg-blue-600';
+    case 'Pemulihan Matematik': return 'bg-orange-500';
+    case 'Pemulihan BM dan Matematik': return 'bg-purple-600';
+    default: return 'bg-slate-500';
+  }
+};
+
 const calculateLastUpdated = (studentList) => {
   if (!studentList || studentList.length === 0) return null;
   
@@ -539,6 +548,7 @@ export default function StudentDatabaseApp() {
       if (s.status === 'Lulus') return false;
       
       const studentYear = getStudentCurrentYear(s);
+      // Logic: Only show Year 1, 2, 3
       if (studentYear > 3) return false;
 
       const matchesYear = profileYearFilter === 'All' || studentYear === parseInt(profileYearFilter);
@@ -567,9 +577,10 @@ export default function StudentDatabaseApp() {
       if (s.status === 'Lulus') return false;
 
       const studentYear = getStudentCurrentYear(s);
+      // Logic: Only show Year 4, 5, 6
       if (studentYear < 4 || studentYear > 6) return false;
 
-      return true; 
+      return true; // PLaN ignores typical profile filters for simplicity, or we can add them back
     });
 
     const groups = {};
@@ -620,6 +631,7 @@ export default function StudentDatabaseApp() {
     });
   }, [students, profileYearFilter, subjectFilter, currentSection, statsFilters]);
 
+  // Last Updated calculation for the current tab
   const lastUpdatedString = useMemo(() => {
     let list = [];
     if (currentSection === 'profile') {
@@ -637,6 +649,7 @@ export default function StudentDatabaseApp() {
   // --- Render ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 text-slate-800 font-sans selection:bg-indigo-100">
+      {/* Navbar */}
       <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
@@ -651,11 +664,17 @@ export default function StudentDatabaseApp() {
             
             <div className="flex items-center gap-3">
               <div className="bg-slate-100/80 backdrop-blur-sm rounded-full p-1 flex items-center text-xs font-bold shadow-inner">
-                <button onClick={() => handleRoleSwitch('admin')} className={`px-4 py-1.5 rounded-full transition-all duration-300 flex items-center gap-1.5 ${role === 'admin' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>
+                <button 
+                  onClick={() => handleRoleSwitch('admin')}
+                  className={`px-4 py-1.5 rounded-full transition-all duration-300 flex items-center gap-1.5 ${role === 'admin' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                >
                   {role === 'admin' && <Shield size={12} className="text-indigo-500" />}
                   Admin
                 </button>
-                <button onClick={() => handleRoleSwitch('user')} className={`px-4 py-1.5 rounded-full transition-all duration-300 ${role === 'user' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>
+                <button 
+                  onClick={() => handleRoleSwitch('user')}
+                  className={`px-4 py-1.5 rounded-full transition-all duration-300 ${role === 'user' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                >
                   User
                 </button>
               </div>
@@ -666,6 +685,7 @@ export default function StudentDatabaseApp() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
+        {/* Section Navigation */}
         <div className="flex justify-center mb-8">
           <div className="sm:hidden w-full">
             <div className="relative">
@@ -699,8 +719,12 @@ export default function StudentDatabaseApp() {
           </div>
         </div>
 
+        {/* --- View Logic --- */}
+        
+        {/* STATS VIEW */}
         {currentSection === 'stats' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Same Stats View as before */}
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Filter size={20} className="text-indigo-500" /> Filter Database
@@ -774,6 +798,7 @@ export default function StudentDatabaseApp() {
           </div>
         )}
 
+        {/* MBK VIEW */}
         {currentSection === 'mbk' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -812,10 +837,12 @@ export default function StudentDatabaseApp() {
                     <div className="flex justify-between items-start mb-6">
                       <Avatar name={student.name} color={student.color || 'bg-indigo-500'} photoUrl={student.photoUrl} size="w-20 h-20"/>
                       {role === 'admin' && (
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openEdit(student)} className="p-2 text-slate-400 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
-                          <button onClick={() => confirmDelete(student)} className="p-2 text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
-                        </div>
+                        <>
+                          <div className="hidden sm:flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => openEdit(student)} className="p-2 text-slate-400 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
+                            <button onClick={() => confirmDelete(student)} className="p-2 text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                          </div>
+                        </>
                       )}
                     </div>
                     <h3 className="font-bold text-lg text-slate-900 mb-2 leading-tight">{student.name}</h3>
@@ -844,6 +871,7 @@ export default function StudentDatabaseApp() {
           </div>
         )}
 
+        {/* LULUS VIEW */}
         {currentSection === 'lulus' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
              <div className="flex justify-between items-center mb-8">
@@ -998,6 +1026,7 @@ export default function StudentDatabaseApp() {
               </div>
             </div>
 
+            {/* Student Groups */}
             {loading ? (
               <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading database...</p></div>
             ) : Object.keys(groupedProfileStudents).length === 0 ? (
@@ -1028,7 +1057,7 @@ export default function StudentDatabaseApp() {
                             <h3 className="font-bold text-sm text-slate-900 leading-tight mb-1 line-clamp-1">{student.name}</h3>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">{student.gender || 'Lelaki'}</p>
                             
-                            <div className="flex items-center justify-center text-[10px] font-bold text-white bg-blue-500 px-2 py-0.5 rounded-md uppercase tracking-wide mb-2 shadow-sm">{student.subject}</div>
+                            <div className={`flex items-center justify-center text-[10px] font-bold text-white px-2 py-0.5 rounded-md uppercase tracking-wide mb-2 shadow-sm ${getSubjectBadgeColor(student.subject)}`}>{student.subject}</div>
 
                             <div className="flex flex-col gap-1 w-full">
                                <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase">
