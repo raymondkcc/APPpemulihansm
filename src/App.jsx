@@ -611,6 +611,9 @@ export default function StudentDatabaseApp() {
       }
       if (currentSection === 'stats') {
         if (program === 'mbk') return false;
+        // Exclude Lulus from Statistics
+        if (s.status === 'Lulus') return false;
+        
         const studentYear = getYearFromClassString(s.className);
         const filterYear = parseInt(statsFilters.year);
         const matchYear = statsFilters.year === 'All' || (studentYear !== null && studentYear === filterYear);
@@ -682,19 +685,19 @@ export default function StudentDatabaseApp() {
               <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                 <div className="relative group">
                   <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-bold text-sm appearance-none transition-colors hover:bg-slate-100 cursor-pointer" value={profileYearFilter} onChange={(e) => setProfileYearFilter(e.target.value)}>
-                    {availableYears.map(y => <option key={y} value={y}>{y === 'All' ? 'Filter: All Years' : `Tahun ${y}`}</option>)}
+                    {availableYears.map(y => <option key={y} value={y}>{y === 'All' ? 'Find: All Years' : `Tahun ${y}`}</option>)}
                   </select>
                   <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
                 </div>
                 <div className="relative group">
                   <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-bold text-sm appearance-none transition-colors hover:bg-slate-100 cursor-pointer" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
-                    {availableClasses.map(c => <option key={c} value={c}>{c === 'All' ? 'Filter: All Classes' : c}</option>)}
+                    {availableClasses.map(c => <option key={c} value={c}>{c === 'All' ? 'Find: All Classes' : c}</option>)}
                   </select>
                   <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
                 </div>
                 <div className="relative group">
                   <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-bold text-sm appearance-none transition-colors hover:bg-slate-100 cursor-pointer" value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
-                    <option value="All">Filter: All Subjects</option>
+                    <option value="All">Find: All Subjects</option>
                     {subjects.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
@@ -878,7 +881,7 @@ export default function StudentDatabaseApp() {
                 {filteredStudents.map(student => {
                   const year = calculateSchoolYearFromIC(student.ic);
                   return (
-                  <div key={student.id} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl border border-slate-100 transition-all duration-300 hover:-translate-y-1 relative group overflow-hidden">
+                  <div key={student.id} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl border border-slate-300 transition-all duration-300 hover:-translate-y-1 relative group overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
                     <div className="flex justify-between items-start mb-6">
                       <Avatar name={student.name} color={student.color || 'bg-indigo-500'} photoUrl={student.photoUrl} size="w-20 h-20"/>
