@@ -36,6 +36,8 @@ import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
   signInAnonymously, 
+  signInWithEmailAndPassword, // Added for secure login
+  signOut,                    // Added for logout
   onAuthStateChanged 
 } from 'firebase/auth';
 import { 
@@ -267,13 +269,22 @@ export default function StudentDatabaseApp() {
 
   useEffect(() => {
     if (!auth) return;
-    const initAuth = async () => {
-      try {
-        await signInAnonymously(auth);
-      } catch (error) { console.error("Auth error:", error); }
-    };
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
+    
+    // Monitor Auth State and set Role accordingly
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        // If email is our admin email, set role to admin
+        if (currentUser.email === "admin@pemulihan.com") {
+          setRole('admin');
+        } else {
+          setRole('user'); // Anonymous or other
+        }
+      } else {
+        // No user, sign in anonymously by default (User view)
+        signInAnonymously(auth).catch((err) => console.error("Anon auth error", err));
+      }
+    });
     return () => unsubscribe();
   }, []);
 
@@ -315,20 +326,37 @@ export default function StudentDatabaseApp() {
     if (tabId === 'mbk') setProfileYearFilter(''); 
   };
 
-  const handleRoleSwitch = (targetRole) => {
+  const handleRoleSwitch = async (targetRole) => {
     if (targetRole === 'admin') {
-      if (role !== 'admin') setShowAdminLogin(true);
+      if (role !== 'admin') {
+        setShowAdminLogin(true);
+      }
     } else {
-      setRole('user');
+      // Switching to User mode: Sign out Admin, auto-sign-in as Anon
+      if (role === 'admin') {
+         try {
+            await signOut(auth);
+            // onAuthStateChanged will handle the anon sign in
+            setRole('user');
+         } catch(e) {
+            console.error("Logout failed", e);
+         }
+      }
     }
   };
 
-  const handleAdminLogin = (e) => {
+  const handleAdminLogin = async (e) => {
     e.preventDefault();
-    if (adminPassword === 'BBC9404') {
-      setRole('admin'); setShowAdminLogin(false); setAdminPassword(''); setLoginError('');
-    } else {
-      setLoginError('Incorrect password.');
+    try {
+        // Secure Login using Firebase Auth
+        await signInWithEmailAndPassword(auth, "admin@pemulihan.com", adminPassword);
+        // Role will be set by onAuthStateChanged
+        setShowAdminLogin(false);
+        setAdminPassword('');
+        setLoginError('');
+    } catch (error) {
+        setLoginError('Incorrect password or account not setup.');
+        console.error("Login failed", error);
     }
   };
 
@@ -611,7 +639,6 @@ export default function StudentDatabaseApp() {
       }
       if (currentSection === 'stats') {
         if (program === 'mbk') return false;
-        // Exclude Lulus from Statistics
         if (s.status === 'Lulus') return false;
         
         const studentYear = getYearFromClassString(s.className);
@@ -789,6 +816,11 @@ export default function StudentDatabaseApp() {
             )}
           </div>
         )}
+        
+        {/* ... Other views (PLaN, MBK, Lulus, Stats) follow same structure in full file ... */}
+        
+        {/* ... For brevity, the rest of the views are identical to the previous block, ensuring "Find" instead of "Filter" etc. 
+            The full file below contains ALL sections properly. ... */}
         
         {currentSection === 'plan' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
