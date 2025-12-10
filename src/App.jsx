@@ -30,14 +30,13 @@ import {
   ChevronDown,
   Menu,
   BookOpenCheck,
-  RefreshCw
+  RefreshCw,
+  MessageSquare
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
   signInAnonymously, 
-  signInWithEmailAndPassword, // Added for secure login
-  signOut,                    // Added for logout
   onAuthStateChanged 
 } from 'firebase/auth';
 import { 
@@ -254,7 +253,7 @@ export default function StudentDatabaseApp() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
-    name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: ''
+    name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: ''
   });
 
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, studentId: null, studentName: '' });
@@ -269,22 +268,13 @@ export default function StudentDatabaseApp() {
 
   useEffect(() => {
     if (!auth) return;
-    
-    // Monitor Auth State and set Role accordingly
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        // If email is our admin email, set role to admin
-        if (currentUser.email === "admin@pemulihan.com") {
-          setRole('admin');
-        } else {
-          setRole('user'); // Anonymous or other
-        }
-      } else {
-        // No user, sign in anonymously by default (User view)
-        signInAnonymously(auth).catch((err) => console.error("Anon auth error", err));
-      }
-    });
+    const initAuth = async () => {
+      try {
+        await signInAnonymously(auth);
+      } catch (error) { console.error("Auth error:", error); }
+    };
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
     return () => unsubscribe();
   }, []);
 
@@ -326,37 +316,20 @@ export default function StudentDatabaseApp() {
     if (tabId === 'mbk') setProfileYearFilter(''); 
   };
 
-  const handleRoleSwitch = async (targetRole) => {
+  const handleRoleSwitch = (targetRole) => {
     if (targetRole === 'admin') {
-      if (role !== 'admin') {
-        setShowAdminLogin(true);
-      }
+      if (role !== 'admin') setShowAdminLogin(true);
     } else {
-      // Switching to User mode: Sign out Admin, auto-sign-in as Anon
-      if (role === 'admin') {
-         try {
-            await signOut(auth);
-            // onAuthStateChanged will handle the anon sign in
-            setRole('user');
-         } catch(e) {
-            console.error("Logout failed", e);
-         }
-      }
+      setRole('user');
     }
   };
 
-  const handleAdminLogin = async (e) => {
+  const handleAdminLogin = (e) => {
     e.preventDefault();
-    try {
-        // Secure Login using Firebase Auth
-        await signInWithEmailAndPassword(auth, "admin@pemulihan.com", adminPassword);
-        // Role will be set by onAuthStateChanged
-        setShowAdminLogin(false);
-        setAdminPassword('');
-        setLoginError('');
-    } catch (error) {
-        setLoginError('Incorrect password or account not setup.');
-        console.error("Login failed", error);
+    if (adminPassword === 'BBC9404') {
+      setRole('admin'); setShowAdminLogin(false); setAdminPassword(''); setLoginError('');
+    } else {
+      setLoginError('Incorrect password.');
     }
   };
 
@@ -407,6 +380,7 @@ export default function StudentDatabaseApp() {
         dataToSave.subject = formData.subject;
       } else {
         dataToSave.mbkType = formData.mbkType; 
+        dataToSave.remarks = formData.remarks || ''; // Save remarks for MBK
         dataToSave.className = ''; 
         dataToSave.subject = '';
       }
@@ -527,7 +501,8 @@ export default function StudentDatabaseApp() {
     setFormData({
       name: student.name, program: student.program || 'pemulihan', className: student.className || '',
       subject: student.subject || 'Pemulihan BM', ic: student.ic || '', gender: student.gender || '',
-      mbkType: student.mbkType || 'MBK', status: student.status || 'Active', photoUrl: student.photoUrl || ''
+      mbkType: student.mbkType || 'MBK', status: student.status || 'Active', photoUrl: student.photoUrl || '',
+      remarks: student.remarks || '' // Load remarks
     });
     setIsModalOpen(true);
   };
@@ -541,13 +516,15 @@ export default function StudentDatabaseApp() {
 
   const resetForm = () => {
     setEditingId(null);
-    setFormData({ name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: '' });
+    setFormData({ name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '' });
   };
 
   const exportToCSV = () => {
-    const headers = ["ID,Name,Program,IC,Gender,MBK_Type,Class,Subject,Status,GraduationDate"];
+    const headers = ["ID,Name,Program,IC,Gender,MBK_Type,Class,Subject,Status,GraduationDate,Remarks"];
     const rows = filteredStudents.map(s => {
-      return `${s.id},"${s.name}","${s.program || 'pemulihan'}",${s.ic || ''},${s.gender || 'Lelaki'},${s.mbkType || ''},"${s.className || ''}",${s.subject || ''},${s.status || 'Active'},${s.graduationDate || ''}`;
+      // Escape potential commas/newlines in remarks
+      const safeRemarks = s.remarks ? `"${s.remarks.replace(/"/g, '""')}"` : '';
+      return `${s.id},"${s.name}","${s.program || 'pemulihan'}",${s.ic || ''},${s.gender || 'Lelaki'},${s.mbkType || ''},"${s.className || ''}",${s.subject || ''},${s.status || 'Active'},${s.graduationDate || ''},${safeRemarks}`;
     });
     const csvContent = "data:text/csv;charset=utf-8," + headers.concat(rows).join("\n");
     const encodedUri = encodeURI(csvContent);
@@ -817,11 +794,6 @@ export default function StudentDatabaseApp() {
           </div>
         )}
         
-        {/* ... Other views (PLaN, MBK, Lulus, Stats) follow same structure in full file ... */}
-        
-        {/* ... For brevity, the rest of the views are identical to the previous block, ensuring "Find" instead of "Filter" etc. 
-            The full file below contains ALL sections properly. ... */}
-        
         {currentSection === 'plan' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
              <div className="flex justify-between items-center mb-8">
@@ -913,7 +885,7 @@ export default function StudentDatabaseApp() {
                 {filteredStudents.map(student => {
                   const year = calculateSchoolYearFromIC(student.ic);
                   return (
-                  <div key={student.id} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl border border-slate-300 transition-all duration-300 hover:-translate-y-1 relative group overflow-hidden">
+                  <div key={student.id} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl border border-slate-100 transition-all duration-300 hover:-translate-y-1 relative group overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
                     <div className="flex justify-between items-start mb-6">
                       <Avatar name={student.name} color={student.color || 'bg-indigo-500'} photoUrl={student.photoUrl} size="w-20 h-20"/>
@@ -935,6 +907,15 @@ export default function StudentDatabaseApp() {
                         <div className="flex items-center gap-2"><span className="text-sm font-semibold text-slate-600">{student.gender}</span><div className={`w-1 h-1 rounded-full bg-slate-300`}></div><span className={`text-xs font-extrabold px-2.5 py-1 rounded-lg border ${student.mbkType === 'OKU' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{student.mbkType || 'MBK'}</span></div>
                       </div>
                     </div>
+                    
+                    {/* Remarks Section */}
+                    {student.remarks && (
+                      <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
+                        <MessageSquare size={16} className="text-yellow-600 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-slate-700 italic">{student.remarks}</p>
+                      </div>
+                    )}
+
                     <div className="mt-6 pt-4 border-t border-slate-100">
                       <button onClick={() => handleCheckOKU(student.ic)} className="w-full flex items-center justify-center gap-2 text-sm font-bold text-white bg-slate-900 hover:bg-indigo-600 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-indigo-200 active:scale-95"><ExternalLink size={16} /> Semakan OKU</button>
                       <p className="text-[10px] text-center text-slate-400 mt-2 font-medium">Auto-copies IC number</p>
@@ -952,6 +933,7 @@ export default function StudentDatabaseApp() {
           </div>
         )}
 
+        {/* LULUS VIEW */}
         {currentSection === 'lulus' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
              <div className="flex justify-between items-center mb-8">
@@ -979,7 +961,7 @@ export default function StudentDatabaseApp() {
                     </div>
                     <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {groupedLulusStudents[groupKey].students.map(student => (
-                        <div key={student.id} className="bg-white border border-slate-300 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
+                        <div key={student.id} className="bg-white border border-slate-100 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
                           <div className="flex items-center gap-4 mb-4">
                             <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" />
                             <div><h4 className="font-bold text-slate-900 text-base leading-tight mb-1">{student.name}</h4><span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{student.gender}</span></div>
@@ -1012,6 +994,7 @@ export default function StudentDatabaseApp() {
 
         {currentSection === 'stats' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Same Stats View as before */}
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Filter size={20} className="text-indigo-500" /> Filter Database
@@ -1122,17 +1105,21 @@ export default function StudentDatabaseApp() {
            <div className="flex gap-3"><button onClick={() => setDeleteConfirmation({ isOpen: false, studentId: null, studentName: '' })} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button><button onClick={executeDelete} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 shadow-sm">Yes, Delete</button></div>
         </Modal>
         <Modal isOpen={moveConfirmation.isOpen} onClose={() => setMoveConfirmation({ isOpen: false, student: null, newStatus: '' })} title="Confirm Status Change">
+            {/* ... Move Form ... */}
             <div className="flex flex-col items-center justify-center mb-6 text-center"><div className="bg-blue-50 p-4 rounded-full mb-4"><ArrowLeftRight className="text-blue-600 w-10 h-10" /></div><h4 className="text-lg font-bold text-gray-900 mb-2">Move Student?</h4><p className="text-gray-500 mb-4">{moveConfirmation.newStatus === 'Lulus' ? `Mark ${moveConfirmation.student?.name} as "Lulus Pemulihan"?` : `Move ${moveConfirmation.student?.name} back to "Profile Murid Pemulihan"?`}</p>{moveConfirmation.newStatus === 'Lulus' && (<div className="w-full text-left bg-gray-50 p-3 rounded-lg border border-gray-200"><label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Graduation Date</label><div className="flex items-center gap-2"><Calendar size={16} className="text-gray-400" /><input type="date" className="bg-transparent border-none focus:ring-0 text-sm font-medium text-gray-900 w-full p-0" value={moveDate} onChange={(e) => setMoveDate(e.target.value)} /></div></div>)}</div>
             <div className="flex gap-3"><button onClick={() => setMoveConfirmation({ isOpen: false, student: null, newStatus: '' })} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button><button onClick={executeMove} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm">Confirm</button></div>
         </Modal>
         <Modal isOpen={isNotesModalOpen} onClose={() => setIsNotesModalOpen(false)} title="Catatan Murid">
+            {/* ... Notes Form ... */}
             <div className="space-y-6"><div className="flex items-center gap-4 p-4 bg-amber-50 rounded-lg"><Avatar name={selectedStudentForNotes?.name || ''} color={selectedStudentForNotes?.color || 'bg-blue-500'} photoUrl={selectedStudentForNotes?.photoUrl}/><div><h4 className="font-bold text-gray-900">{selectedStudentForNotes?.name}</h4><p className="text-sm text-gray-500">{selectedStudentForNotes?.className}</p></div></div><form onSubmit={saveNote} className="space-y-3"><div><label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Date</label><input type="date" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" value={noteForm.date} onChange={(e) => setNoteForm({...noteForm, date: e.target.value})}/></div><div><label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Catatan (Note)</label><textarea required rows="3" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" value={noteForm.text} onChange={(e) => setNoteForm({...noteForm, text: e.target.value})} placeholder="Enter note details here..."></textarea></div><button type="submit" className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium shadow-sm transition-colors">{noteForm.id ? 'Update Note' : 'Add Note'}</button></form><div className="border-t border-gray-100 pt-4"><h5 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2"><Clock size={16} /> History</h5><div className="space-y-3 max-h-60 overflow-y-auto">{selectedStudentForNotes?.notes && selectedStudentForNotes.notes.length > 0 ? ([...selectedStudentForNotes.notes].sort((a, b) => new Date(b.date) - new Date(a.date)).map((note) => (<div key={note.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200 relative group"><div className="flex justify-between items-start mb-1"><span className="text-xs font-bold text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200">{note.date}</span><div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => startEditNote(note)} className="text-blue-600 hover:text-blue-800"><Edit2 size={14} /></button><button onClick={() => deleteNote(note.id)} className="text-red-600 hover:text-red-800"><Trash2 size={14} /></button></div></div><p className="text-sm text-gray-800 whitespace-pre-wrap">{note.text}</p></div>))) : (<p className="text-center text-sm text-gray-400 py-4">No notes recorded yet.</p>)}</div></div></div>
         </Modal>
         <Modal isOpen={isAttendanceModalOpen} onClose={() => setIsAttendanceModalOpen(false)} title="Manage Attendance">
+            {/* ... Attendance Form ... */}
             <div className="space-y-6"><div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg"><Avatar name={selectedStudentForAttendance?.name || ''} color={selectedStudentForAttendance?.color || 'bg-blue-500'} photoUrl={selectedStudentForAttendance?.photoUrl}/><div><h4 className="font-bold text-gray-900">{selectedStudentForAttendance?.name}</h4><p className="text-sm text-gray-500">{selectedStudentForAttendance?.className}</p></div></div><div><label className="block text-sm font-medium text-gray-700 mb-2">Mark for specific date</label><div className="flex gap-2"><input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/><button onClick={() => markAttendance('present')} className="flex items-center gap-1 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 font-medium"><Check size={16} /> Present</button><button onClick={() => markAttendance('absent')} className="flex items-center gap-1 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium"><X size={16} /> Absent</button></div></div><div><h5 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><Clock size={14} /> Record History</h5><div className="max-h-48 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-100">{selectedStudentForAttendance?.attendanceRecords?.length > 0 ? ([...selectedStudentForAttendance.attendanceRecords].sort((a, b) => new Date(b.date) - new Date(a.date)).map((record, idx) => (<div key={idx} className="flex justify-between items-center p-3 hover:bg-gray-50"><div className="text-sm"><span className="font-medium text-gray-700">{record.date}</span></div><div className="flex items-center gap-3"><span className={`text-xs font-bold px-2 py-1 rounded uppercase ${record.status === 'present' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{record.status}</span><button onClick={() => deleteAttendanceRecord(record)} className="text-gray-400 hover:text-red-500" title="Delete entry"><Trash2 size={14} /></button></div></div>))) : (<div className="p-4 text-center text-sm text-gray-400">No records found.</div>)}</div></div></div>
         </Modal>
         <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Student" : "Add New Student"}>
-            <form onSubmit={handleSave} className="space-y-4">{!editingId && (<div className="flex p-1 bg-gray-100 rounded-lg mb-4"><button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'pemulihan' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => setFormData(prev => ({ ...prev, program: 'pemulihan' }))}>Profile Pemulihan</button><button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'mbk' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => setFormData(prev => ({ ...prev, program: 'mbk' }))}>Murid MBK & OKU</button></div>)}<div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 hover:border-blue-400 transition-colors"><div className="mb-3"><Avatar name={formData.name || 'User'} color="bg-gray-300" photoUrl={formData.photoUrl} size="w-20 h-20"/></div><label className="cursor-pointer"><span className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"><Camera size={16} /> {formData.photoUrl ? 'Change Photo' : 'Upload Photo'}</span><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label><p className="text-xs text-gray-400 mt-1">Max size 5MB</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Jane Doe"/></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Jantina (Gender)</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Lelaki" checked={formData.gender === 'Lelaki'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-blue-600 focus:ring-blue-500"/><span className="text-sm text-gray-700">Lelaki</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Perempuan" checked={formData.gender === 'Perempuan'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-blue-600 focus:ring-blue-500"/><span className="text-sm text-gray-700">Perempuan</span></label></div></div>{formData.program === 'pemulihan' ? (<><div><label className="block text-sm font-medium text-gray-700 mb-1">IC Number (Optional but Recommended)</label><input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm" value={formData.ic} onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })} placeholder="For Auto-Year Calculation (e.g. 16...)" maxLength={12}/></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Class Name</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm" value={formData.className} onChange={handleClassNameChange} placeholder="e.g. 2 He"/><p className="text-xs text-gray-400 mt-1">Format: Year ClassName (e.g. 2 He)</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Subject</label><select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })}>{subjects.map(s => <option key={s} value={s}>{s}</option>)}</select></div></>) : (<><div><label className="block text-sm font-medium text-gray-700 mb-1">Kategori (Category)</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbkType" value="MBK" checked={formData.mbkType === 'MBK'} onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })} className="text-amber-600 focus:ring-amber-500"/><span className="text-sm text-gray-700">MBK (Tiada Kad)</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbkType" value="OKU" checked={formData.mbkType === 'OKU'} onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })} className="text-green-600 focus:ring-green-500"/><span className="text-sm text-gray-700">OKU (Ada Kad)</span></label></div></div><div><label className="block text-sm font-medium text-gray-700 mb-1">MyKid / IC Number</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm" value={formData.ic} onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })} placeholder="e.g. 160520101234" maxLength={12}/><p className="text-xs text-gray-400 mt-1">System will auto-calculate School Year based on first 2 digits.</p></div></>)}<div className="pt-4 flex justify-end gap-3"><button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button><button type="submit" className={`px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm ${formData.program === 'mbk' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'}`}>{editingId ? 'Save Changes' : 'Add Student'}</button></div></form>
+            {/* ... Edit/Add Form ... */}
+            <form onSubmit={handleSave} className="space-y-4">{!editingId && (<div className="flex p-1 bg-gray-100 rounded-lg mb-4"><button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'pemulihan' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => setFormData(prev => ({ ...prev, program: 'pemulihan' }))}>Profile Pemulihan</button><button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'mbk' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => setFormData(prev => ({ ...prev, program: 'mbk' }))}>Murid MBK & OKU</button></div>)}<div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 hover:border-blue-400 transition-colors"><div className="mb-3"><Avatar name={formData.name || 'User'} color="bg-gray-300" photoUrl={formData.photoUrl} size="w-20 h-20"/></div><label className="cursor-pointer"><span className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"><Camera size={16} /> {formData.photoUrl ? 'Change Photo' : 'Upload Photo'}</span><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label><p className="text-xs text-gray-400 mt-1">Max size 5MB</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Jane Doe"/></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Jantina (Gender)</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Lelaki" checked={formData.gender === 'Lelaki'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-blue-600 focus:ring-blue-500"/><span className="text-sm text-gray-700">Lelaki</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Perempuan" checked={formData.gender === 'Perempuan'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-blue-600 focus:ring-blue-500"/><span className="text-sm text-gray-700">Perempuan</span></label></div></div>{formData.program === 'pemulihan' ? (<><div><label className="block text-sm font-medium text-gray-700 mb-1">IC Number (Optional but Recommended)</label><input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm" value={formData.ic} onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })} placeholder="For Auto-Year Calculation (e.g. 16...)" maxLength={12}/></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Class Name</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm" value={formData.className} onChange={handleClassNameChange} placeholder="e.g. 2 He"/><p className="text-xs text-gray-400 mt-1">Format: Year ClassName (e.g. 2 He)</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Subject</label><select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })}>{subjects.map(s => <option key={s} value={s}>{s}</option>)}</select></div></>) : (<><div><label className="block text-sm font-medium text-gray-700 mb-1">Kategori (Category)</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbkType" value="MBK" checked={formData.mbkType === 'MBK'} onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })} className="text-amber-600 focus:ring-amber-500"/><span className="text-sm text-gray-700">MBK (Tiada Kad)</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbkType" value="OKU" checked={formData.mbkType === 'OKU'} onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })} className="text-green-600 focus:ring-green-500"/><span className="text-sm text-gray-700">OKU (Ada Kad)</span></label></div></div><div><label className="block text-sm font-medium text-gray-700 mb-1">MyKid / IC Number</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm" value={formData.ic} onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })} placeholder="e.g. 160520101234" maxLength={12}/><p className="text-xs text-gray-400 mt-1">System will auto-calculate School Year based on first 2 digits.</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label><textarea className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={formData.remarks} onChange={(e) => setFormData({ ...formData, remarks: e.target.value })} placeholder="Enter optional remarks..." rows="2"></textarea></div></>)}<div className="pt-4 flex justify-end gap-3"><button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button><button type="submit" className={`px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm ${formData.program === 'mbk' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'}`}>{editingId ? 'Save Changes' : 'Add Student'}</button></div></form>
         </Modal>
 
     </div>
