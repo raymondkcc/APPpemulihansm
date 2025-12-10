@@ -31,7 +31,9 @@ import {
   Menu,
   BookOpenCheck,
   RefreshCw,
-  MessageSquare
+  MessageSquare,
+  FileText,
+  Link as LinkIcon
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -253,7 +255,7 @@ export default function StudentDatabaseApp() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
-    name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: ''
+    name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: ''
   });
 
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, studentId: null, studentName: '' });
@@ -380,7 +382,8 @@ export default function StudentDatabaseApp() {
         dataToSave.subject = formData.subject;
       } else {
         dataToSave.mbkType = formData.mbkType; 
-        dataToSave.remarks = formData.remarks || ''; // Save remarks for MBK
+        dataToSave.remarks = formData.remarks || ''; 
+        dataToSave.docLink = formData.docLink || ''; // Save Document Link
         dataToSave.className = ''; 
         dataToSave.subject = '';
       }
@@ -468,15 +471,6 @@ export default function StudentDatabaseApp() {
 
   const startEditNote = (note) => setNoteForm({ id: note.id, text: note.text, date: note.date });
 
-  const handleCheckOKU = (ic) => {
-    if (!ic) return;
-    const textArea = document.createElement("textarea");
-    textArea.value = ic; document.body.appendChild(textArea); textArea.select();
-    try { document.execCommand('copy'); } catch (err) { console.error('Copy failed', err); }
-    document.body.removeChild(textArea);
-    window.open('https://oku.jkm.gov.my/semakan_oku', '_blank');
-  };
-
   const toggleStudentStatus = (student) => {
     if (!user || role !== 'admin') return;
     const newStatus = student.status === 'Lulus' ? 'Active' : 'Lulus';
@@ -502,7 +496,7 @@ export default function StudentDatabaseApp() {
       name: student.name, program: student.program || 'pemulihan', className: student.className || '',
       subject: student.subject || 'Pemulihan BM', ic: student.ic || '', gender: student.gender || '',
       mbkType: student.mbkType || 'MBK', status: student.status || 'Active', photoUrl: student.photoUrl || '',
-      remarks: student.remarks || '' // Load remarks
+      remarks: student.remarks || '', docLink: student.docLink || '' // Load remarks and docLink
     });
     setIsModalOpen(true);
   };
@@ -516,15 +510,16 @@ export default function StudentDatabaseApp() {
 
   const resetForm = () => {
     setEditingId(null);
-    setFormData({ name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '' });
+    setFormData({ name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '' });
   };
 
   const exportToCSV = () => {
-    const headers = ["ID,Name,Program,IC,Gender,MBK_Type,Class,Subject,Status,GraduationDate,Remarks"];
+    const headers = ["ID,Name,Program,IC,Gender,MBK_Type,Class,Subject,Status,GraduationDate,Remarks,DocLink"];
     const rows = filteredStudents.map(s => {
-      // Escape potential commas/newlines in remarks
+      // Escape potential commas/newlines in remarks and link
       const safeRemarks = s.remarks ? `"${s.remarks.replace(/"/g, '""')}"` : '';
-      return `${s.id},"${s.name}","${s.program || 'pemulihan'}",${s.ic || ''},${s.gender || 'Lelaki'},${s.mbkType || ''},"${s.className || ''}",${s.subject || ''},${s.status || 'Active'},${s.graduationDate || ''},${safeRemarks}`;
+      const safeLink = s.docLink ? `"${s.docLink}"` : '';
+      return `${s.id},"${s.name}","${s.program || 'pemulihan'}",${s.ic || ''},${s.gender || 'Lelaki'},${s.mbkType || ''},"${s.className || ''}",${s.subject || ''},${s.status || 'Active'},${s.graduationDate || ''},${safeRemarks},${safeLink}`;
     });
     const csvContent = "data:text/csv;charset=utf-8," + headers.concat(rows).join("\n");
     const encodedUri = encodeURI(csvContent);
@@ -916,9 +911,10 @@ export default function StudentDatabaseApp() {
                       </div>
                     )}
 
-                    <div className="mt-6 pt-4 border-t border-slate-100">
-                      <button onClick={() => handleCheckOKU(student.ic)} className="w-full flex items-center justify-center gap-2 text-sm font-bold text-white bg-slate-900 hover:bg-indigo-600 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-indigo-200 active:scale-95"><ExternalLink size={16} /> Semakan OKU</button>
-                      <p className="text-[10px] text-center text-slate-400 mt-2 font-medium">Auto-copies IC number</p>
+                    <div className="mt-6 pt-4 border-t border-slate-100 flex gap-2">
+                      <button onClick={() => window.open(student.docLink, '_blank')} disabled={!student.docLink} className={`flex-1 flex items-center justify-center gap-2 text-sm font-bold text-white py-2.5 rounded-xl transition-all shadow-sm active:scale-95 ${student.docLink ? 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-indigo-200' : 'bg-slate-300 cursor-not-allowed'}`} title={student.docLink ? 'Open Document' : 'No document linked'}>
+                        <FileText size={16} /> Documents
+                      </button>
                     </div>
                     {role === 'admin' && (
                         <div className="sm:hidden w-full mt-4 pt-4 border-t border-slate-50 flex justify-around">
@@ -961,7 +957,7 @@ export default function StudentDatabaseApp() {
                     </div>
                     <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {groupedLulusStudents[groupKey].students.map(student => (
-                        <div key={student.id} className="bg-white border border-slate-100 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
+                        <div key={student.id} className="bg-white border border-slate-300 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
                           <div className="flex items-center gap-4 mb-4">
                             <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" />
                             <div><h4 className="font-bold text-slate-900 text-base leading-tight mb-1">{student.name}</h4><span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{student.gender}</span></div>
@@ -1119,7 +1115,7 @@ export default function StudentDatabaseApp() {
         </Modal>
         <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Student" : "Add New Student"}>
             {/* ... Edit/Add Form ... */}
-            <form onSubmit={handleSave} className="space-y-4">{!editingId && (<div className="flex p-1 bg-gray-100 rounded-lg mb-4"><button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'pemulihan' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => setFormData(prev => ({ ...prev, program: 'pemulihan' }))}>Profile Pemulihan</button><button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'mbk' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => setFormData(prev => ({ ...prev, program: 'mbk' }))}>Murid MBK & OKU</button></div>)}<div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 hover:border-blue-400 transition-colors"><div className="mb-3"><Avatar name={formData.name || 'User'} color="bg-gray-300" photoUrl={formData.photoUrl} size="w-20 h-20"/></div><label className="cursor-pointer"><span className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"><Camera size={16} /> {formData.photoUrl ? 'Change Photo' : 'Upload Photo'}</span><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label><p className="text-xs text-gray-400 mt-1">Max size 5MB</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Jane Doe"/></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Jantina (Gender)</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Lelaki" checked={formData.gender === 'Lelaki'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-blue-600 focus:ring-blue-500"/><span className="text-sm text-gray-700">Lelaki</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Perempuan" checked={formData.gender === 'Perempuan'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-blue-600 focus:ring-blue-500"/><span className="text-sm text-gray-700">Perempuan</span></label></div></div>{formData.program === 'pemulihan' ? (<><div><label className="block text-sm font-medium text-gray-700 mb-1">IC Number (Optional but Recommended)</label><input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm" value={formData.ic} onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })} placeholder="For Auto-Year Calculation (e.g. 16...)" maxLength={12}/></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Class Name</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm" value={formData.className} onChange={handleClassNameChange} placeholder="e.g. 2 He"/><p className="text-xs text-gray-400 mt-1">Format: Year ClassName (e.g. 2 He)</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Subject</label><select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })}>{subjects.map(s => <option key={s} value={s}>{s}</option>)}</select></div></>) : (<><div><label className="block text-sm font-medium text-gray-700 mb-1">Kategori (Category)</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbkType" value="MBK" checked={formData.mbkType === 'MBK'} onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })} className="text-amber-600 focus:ring-amber-500"/><span className="text-sm text-gray-700">MBK (Tiada Kad)</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbkType" value="OKU" checked={formData.mbkType === 'OKU'} onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })} className="text-green-600 focus:ring-green-500"/><span className="text-sm text-gray-700">OKU (Ada Kad)</span></label></div></div><div><label className="block text-sm font-medium text-gray-700 mb-1">MyKid / IC Number</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm" value={formData.ic} onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })} placeholder="e.g. 160520101234" maxLength={12}/><p className="text-xs text-gray-400 mt-1">System will auto-calculate School Year based on first 2 digits.</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label><textarea className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={formData.remarks} onChange={(e) => setFormData({ ...formData, remarks: e.target.value })} placeholder="Enter optional remarks..." rows="2"></textarea></div></>)}<div className="pt-4 flex justify-end gap-3"><button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button><button type="submit" className={`px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm ${formData.program === 'mbk' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'}`}>{editingId ? 'Save Changes' : 'Add Student'}</button></div></form>
+            <form onSubmit={handleSave} className="space-y-4">{!editingId && (<div className="flex p-1 bg-gray-100 rounded-lg mb-4"><button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'pemulihan' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => setFormData(prev => ({ ...prev, program: 'pemulihan' }))}>Profile Pemulihan</button><button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'mbk' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => setFormData(prev => ({ ...prev, program: 'mbk' }))}>Murid MBK & OKU</button></div>)}<div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 hover:border-blue-400 transition-colors"><div className="mb-3"><Avatar name={formData.name || 'User'} color="bg-gray-300" photoUrl={formData.photoUrl} size="w-20 h-20"/></div><label className="cursor-pointer"><span className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"><Camera size={16} /> {formData.photoUrl ? 'Change Photo' : 'Upload Photo'}</span><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label><p className="text-xs text-gray-400 mt-1">Max size 5MB</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Jane Doe"/></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Jantina (Gender)</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Lelaki" checked={formData.gender === 'Lelaki'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-blue-600 focus:ring-blue-500"/><span className="text-sm text-gray-700">Lelaki</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Perempuan" checked={formData.gender === 'Perempuan'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-blue-600 focus:ring-blue-500"/><span className="text-sm text-gray-700">Perempuan</span></label></div></div>{formData.program === 'pemulihan' ? (<><div><label className="block text-sm font-medium text-gray-700 mb-1">IC Number (Optional but Recommended)</label><input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm" value={formData.ic} onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })} placeholder="For Auto-Year Calculation (e.g. 16...)" maxLength={12}/></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Class Name</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm" value={formData.className} onChange={handleClassNameChange} placeholder="e.g. 2 He"/><p className="text-xs text-gray-400 mt-1">Format: Year ClassName (e.g. 2 He)</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Subject</label><select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })}>{subjects.map(s => <option key={s} value={s}>{s}</option>)}</select></div></>) : (<><div><label className="block text-sm font-medium text-gray-700 mb-1">Kategori (Category)</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbkType" value="MBK" checked={formData.mbkType === 'MBK'} onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })} className="text-amber-600 focus:ring-amber-500"/><span className="text-sm text-gray-700">MBK (Tiada Kad)</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbkType" value="OKU" checked={formData.mbkType === 'OKU'} onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })} className="text-green-600 focus:ring-green-500"/><span className="text-sm text-gray-700">OKU (Ada Kad)</span></label></div></div><div><label className="block text-sm font-medium text-gray-700 mb-1">MyKid / IC Number</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm" value={formData.ic} onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })} placeholder="e.g. 160520101234" maxLength={12}/><p className="text-xs text-gray-400 mt-1">System will auto-calculate School Year based on first 2 digits.</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label><textarea className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={formData.remarks} onChange={(e) => setFormData({ ...formData, remarks: e.target.value })} placeholder="Enter optional remarks..." rows="2"></textarea></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Document Link</label><input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm" value={formData.docLink} onChange={(e) => setFormData({ ...formData, docLink: e.target.value })} placeholder="https://..." /></div></>)}<div className="pt-4 flex justify-end gap-3"><button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button><button type="submit" className={`px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm ${formData.program === 'mbk' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'}`}>{editingId ? 'Save Changes' : 'Add Student'}</button></div></form>
         </Modal>
 
     </div>
