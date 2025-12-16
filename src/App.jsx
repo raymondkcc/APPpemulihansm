@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Users, 
   Plus, 
@@ -33,16 +33,18 @@ import {
   RefreshCw,
   MessageSquare,
   FileText,
-  Link as LinkIcon
+  Link as LinkIcon,
+  ZoomIn,
+  ZoomOut,
+  Move
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
   signInAnonymously, 
-  signInWithCustomToken,
   onAuthStateChanged,
   signInWithEmailAndPassword,
-  signOut
+  signOut 
 } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -74,7 +76,144 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = 'my-school-database';
 
-// --- Components ---
+// --- Helper Components ---
+
+// Image Adjuster / Cropper Component
+const ImageAdjuster = ({ imageSrc, onSave, onCancel }) => {
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  
+  const canvasRef = useRef(null);
+  const imageRef = useRef(null);
+  const containerRef = useRef(null);
+
+  // Handle Dragging
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+  };
+
+  const handleMouseMove = (e) => {
+    if (isDragging) {
+      setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+    }
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+  
+  // Touch support for mobile
+  const handleTouchStart = (e) => {
+    setIsDragging(true);
+    setDragStart({ x: e.touches[0].clientX - position.x, y: e.touches[0].clientY - position.y });
+  };
+
+  const handleTouchMove = (e) => {
+    if (isDragging) {
+      setPosition({ x: e.touches[0].clientX - dragStart.x, y: e.touches[0].clientY - dragStart.y });
+    }
+  };
+
+  const handleSave = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const img = imageRef.current;
+
+    // Set fixed output size (e.g., 500x500 square)
+    const size = 500;
+    canvas.width = size;
+    canvas.height = size;
+
+    // Fill white background
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, size, size);
+
+    // Calculate drawing params
+    // The container is usually smaller (e.g. 300px), so we need a multiplier
+    const containerSize = containerRef.current.clientWidth;
+    const ratio = size / containerSize;
+
+    // Center point math
+    const drawX = (position.x * ratio) + (size / 2) - ((img.width * scale * ratio) / 2);
+    const drawY = (position.y * ratio) + (size / 2) - ((img.height * scale * ratio) / 2);
+    const drawWidth = img.width * scale * ratio;
+    const drawHeight = img.height * scale * ratio;
+
+    ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+    
+    // Output compressed JPEG
+    onSave(canvas.toDataURL('image/jpeg', 0.8));
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+          <h3 className="font-bold text-lg text-slate-800">Adjust Photo</h3>
+          <button onClick={onCancel} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
+        </div>
+        
+        <div className="p-6 flex flex-col items-center gap-4">
+          <div 
+            ref={containerRef}
+            className="w-64 h-64 bg-slate-100 rounded-xl overflow-hidden relative cursor-move touch-none border-2 border-slate-200 shadow-inner"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleMouseUp}
+          >
+            {/* The Image Layer */}
+            <img 
+              ref={imageRef}
+              src={imageSrc} 
+              alt="Edit" 
+              className="absolute max-w-none origin-center pointer-events-none select-none"
+              style={{ 
+                transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                left: '50%',
+                top: '50%'
+              }}
+              draggable="false"
+            />
+            
+            {/* The Overlay Guide (Optional visual aid) */}
+            <div className="absolute inset-0 border-2 border-indigo-500/30 rounded-xl pointer-events-none"></div>
+          </div>
+
+          {/* Controls */}
+          <div className="w-full space-y-4">
+             <div className="flex items-center gap-3 text-slate-500">
+               <ZoomOut size={16} />
+               <input 
+                 type="range" 
+                 min="0.1" 
+                 max="3" 
+                 step="0.05" 
+                 value={scale} 
+                 onChange={(e) => setScale(parseFloat(e.target.value))}
+                 className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+               />
+               <ZoomIn size={16} />
+             </div>
+             <p className="text-center text-xs text-slate-400">Drag to move • Pinch/Slider to zoom</p>
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-slate-100 flex gap-3">
+          <button onClick={onCancel} className="flex-1 py-2.5 font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200">Cancel</button>
+          <button onClick={handleSave} className="flex-1 py-2.5 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-md shadow-indigo-200">Save Photo</button>
+        </div>
+        
+        {/* Hidden Canvas for processing */}
+        <canvas ref={canvasRef} className="hidden"></canvas>
+      </div>
+    </div>
+  );
+};
 
 const Avatar = ({ name, color, photoUrl, size = "w-12 h-12" }) => {
   if (photoUrl) {
@@ -82,7 +221,7 @@ const Avatar = ({ name, color, photoUrl, size = "w-12 h-12" }) => {
       <img 
         src={photoUrl} 
         alt={name} 
-        className={`${size} rounded-xl object-cover object-top shadow-sm border-2 border-white ring-1 ring-gray-100 flex-shrink-0 bg-white`} 
+        className={`${size} rounded-full object-cover object-top shadow-sm border-2 border-white ring-1 ring-gray-100 flex-shrink-0 bg-white`} 
       />
     );
   }
@@ -95,7 +234,7 @@ const Avatar = ({ name, color, photoUrl, size = "w-12 h-12" }) => {
     .toUpperCase();
   
   return (
-    <div className={`${size} rounded-xl flex items-center justify-center text-white font-bold shadow-sm border-2 border-white ring-1 ring-gray-100 ${color} flex-shrink-0`}>
+    <div className={`${size} rounded-full flex items-center justify-center text-white font-bold shadow-sm border-2 border-white ring-1 ring-gray-100 ${color} flex-shrink-0`}>
       {initials}
     </div>
   );
@@ -261,6 +400,9 @@ export default function StudentDatabaseApp() {
     name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: ''
   });
 
+  // State for Image Cropper
+  const [rawImageSrc, setRawImageSrc] = useState(null);
+
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, studentId: null, studentName: '' });
   const [moveConfirmation, setMoveConfirmation] = useState({ isOpen: false, student: null, newStatus: '' });
   const [moveDate, setMoveDate] = useState(new Date().toISOString().split('T')[0]);
@@ -356,6 +498,7 @@ export default function StudentDatabaseApp() {
     }
   };
 
+  // --- UPDATED: Image Upload with Cropper trigger ---
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -364,22 +507,17 @@ export default function StudentDatabaseApp() {
       }
       const reader = new FileReader();
       reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width; let height = img.height;
-          const MAX_DIMENSION = 800;
-          if (width > height) { if (width > MAX_DIMENSION) { height *= MAX_DIMENSION / width; width = MAX_DIMENSION; } } 
-          else { if (height > MAX_DIMENSION) { width *= MAX_DIMENSION / height; height = MAX_DIMENSION; } }
-          canvas.width = width; canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          setFormData(prev => ({ ...prev, photoUrl: canvas.toDataURL('image/jpeg', 0.7) }));
-        };
-        img.src = event.target.result;
+         // Instead of setting form data directly, set raw image for adjuster
+         setRawImageSrc(event.target.result);
       };
       reader.readAsDataURL(file);
     }
+  };
+  
+  // Callback when cropping is finished
+  const handleCropComplete = (croppedImageBase64) => {
+    setFormData(prev => ({ ...prev, photoUrl: croppedImageBase64 }));
+    setRawImageSrc(null); // Close adjuster
   };
 
   const handleSave = async (e) => {
@@ -675,6 +813,7 @@ export default function StudentDatabaseApp() {
   // --- Render ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 text-slate-800 font-sans selection:bg-indigo-100 pb-24">
+      {/* ... (Navbar stays same) ... */}
       <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
@@ -712,8 +851,11 @@ export default function StudentDatabaseApp() {
           </div>
         </div>
 
+        {/* ... (View Logic - Stats, MBK, Lulus, Profile) ... */}
+        
         {currentSection === 'stats' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+             {/* ... (Stats View content same as before) ... */}
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Filter size={20} className="text-indigo-500" /> Find Database
@@ -789,6 +931,7 @@ export default function StudentDatabaseApp() {
 
         {currentSection === 'mbk' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* ... (MBK View) ... */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
               <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight">Senarai Murid MBK</h2>
               <div className="flex gap-3 w-full md:w-auto items-center">
@@ -872,6 +1015,7 @@ export default function StudentDatabaseApp() {
         {/* LULUS VIEW */}
         {currentSection === 'lulus' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             {/* ... (Lulus View content same as before) ... */}
              <div className="flex justify-between items-center mb-8">
               <h2 className="text-2xl font-extrabold text-purple-900 tracking-tight">Graduates (Lulus)</h2>
               <div className="flex gap-2 items-center">
@@ -932,6 +1076,7 @@ export default function StudentDatabaseApp() {
         
         {currentSection === 'plan' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             {/* ... (PLaN View content same as before) ... */}
              <div className="flex justify-between items-center mb-8">
               <h2 className="text-2xl font-extrabold text-blue-900 tracking-tight">PLaN (Thn 4-6)</h2>
               <div className="flex gap-2 items-center">
@@ -967,13 +1112,15 @@ export default function StudentDatabaseApp() {
                             <>
                               <div className="hidden sm:flex absolute top-4 right-4 gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
                                  <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded transition-colors"><StickyNote size={16} /></button>
-                                 <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded transition-colors"><Trash2 size={16} /></button>
+                                 <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Calendar size={14} /></button>
                                  <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded transition-colors"><Edit2 size={16} /></button>
+                                 <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded transition-colors"><Trash2 size={16} /></button>
                               </div>
                               <div className="sm:hidden w-full mt-4 pt-4 border-t border-slate-50 flex justify-around">
                                  <button onClick={() => openNotesModal(student)} className="p-2 text-amber-500 bg-slate-100 rounded-lg"><StickyNote size={18} /></button>
-                                 <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-slate-100 rounded-lg"><Trash2 size={18} /></button>
+                                 <button onClick={() => openAttendanceModal(student)} className="p-2 text-blue-500 bg-slate-100 rounded-lg"><Calendar size={18} /></button>
                                  <button onClick={() => openEdit(student)} className="p-2 text-slate-400 bg-slate-100 rounded-lg"><Edit2 size={18} /></button>
+                                 <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-slate-100 rounded-lg"><Trash2 size={18} /></button>
                               </div>
                             </>
                           )}
@@ -992,6 +1139,7 @@ export default function StudentDatabaseApp() {
 
         {currentSection === 'profile' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             {/* ... (Profile View content same as before) ... */}
             <div className="flex flex-col lg:flex-row gap-4 mb-8 justify-between items-start lg:items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
               <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                 <div className="relative group">
@@ -1008,7 +1156,6 @@ export default function StudentDatabaseApp() {
                 </div>
                 <div className="relative group">
                   <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-bold text-sm appearance-none transition-colors hover:bg-slate-100 cursor-pointer" value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
-                    <option value="All">Find: All Subjects</option>
                     {subjects.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
@@ -1103,7 +1250,6 @@ export default function StudentDatabaseApp() {
         )}
       </main>
 
-      {/* Fixed Bottom Navigation (Mobile Only) */}
       <div className="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around items-center z-50 sm:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
          {[
             { id: 'profile', label: 'Profile', icon: School },
@@ -1127,7 +1273,6 @@ export default function StudentDatabaseApp() {
           ))}
       </div>
       
-      {/* Modals */}
       <Modal isOpen={showAdminLogin} onClose={() => { setShowAdminLogin(false); setAdminPassword(''); setLoginError(''); }} title="Admin Login">
             <form onSubmit={handleAdminLogin} className="space-y-4">
                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Password</label><input type="password" className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`} value={adminPassword} onChange={(e) => { setAdminPassword(e.target.value); setLoginError(''); }} placeholder="Enter password..." autoFocus />{loginError && <p className="text-xs text-red-500 mt-1">{loginError}</p>}</div>
