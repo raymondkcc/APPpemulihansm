@@ -82,7 +82,7 @@ const Avatar = ({ name, color, photoUrl, size = "w-12 h-12" }) => {
       <img 
         src={photoUrl} 
         alt={name} 
-        className={`${size} rounded-full object-cover shadow-sm border-2 border-white ring-1 ring-gray-100 flex-shrink-0 bg-white`} 
+        className={`${size} rounded-xl object-cover object-top shadow-sm border-2 border-white ring-1 ring-gray-100 flex-shrink-0 bg-white`} 
       />
     );
   }
@@ -95,7 +95,7 @@ const Avatar = ({ name, color, photoUrl, size = "w-12 h-12" }) => {
     .toUpperCase();
   
   return (
-    <div className={`${size} rounded-full flex items-center justify-center text-white font-bold shadow-sm border-2 border-white ring-1 ring-gray-100 ${color} flex-shrink-0`}>
+    <div className={`${size} rounded-xl flex items-center justify-center text-white font-bold shadow-sm border-2 border-white ring-1 ring-gray-100 ${color} flex-shrink-0`}>
       {initials}
     </div>
   );
@@ -716,7 +716,7 @@ export default function StudentDatabaseApp() {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <Filter size={20} className="text-indigo-500" /> Filter Database
+                <Filter size={20} className="text-indigo-500" /> Find Database
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="relative">
@@ -905,14 +905,14 @@ export default function StudentDatabaseApp() {
                           {role === 'admin' && (
                             <>
                               <div className="hidden sm:flex absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
+                                <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors" title="Edit"><Edit2 size={16} /></button>
                                 <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-slate-400 hover:text-purple-600 transition-colors" title="Revert"><RotateCcw size={16} /></button>
                                 <button onClick={() => confirmDelete(student)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors" title="Delete"><Trash2 size={16} /></button>
-                                <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors" title="Edit"><Edit2 size={16} /></button>
                               </div>
                               <div className="sm:hidden w-full mt-4 pt-4 border-t border-slate-50 flex justify-around">
+                                <button onClick={() => openEdit(student)} className="p-2 text-slate-400 bg-slate-100 rounded-lg"><Edit2 size={18} /></button>
                                 <button onClick={() => toggleStudentStatus(student)} className="p-2 text-purple-500 bg-slate-100 rounded-lg"><RotateCcw size={18} /></button>
                                 <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-slate-100 rounded-lg"><Trash2 size={18} /></button>
-                                <button onClick={() => openEdit(student)} className="p-2 text-slate-400 bg-slate-100 rounded-lg"><Edit2 size={18} /></button>
                               </div>
                             </>
                           )}
