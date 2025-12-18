@@ -59,6 +59,7 @@ import {
   arrayUnion,
   arrayRemove 
 } from 'firebase/firestore';
+import * as XLSX from 'xlsx';
 
 // --- Firebase Configuration ---
 const firebaseConfig = {
@@ -221,10 +222,8 @@ const calculateSchoolYearFromIC = (ic) => {
   if (!ic) return null;
   const icStr = String(ic);
   if (icStr.length < 2) return null;
-  
   const yearPrefix = parseInt(icStr.substring(0, 2));
   if (isNaN(yearPrefix)) return null;
-
   const birthYear = 2000 + yearPrefix; 
   const currentYear = new Date().getFullYear();
   const age = currentYear - birthYear;
@@ -250,11 +249,9 @@ const getStudentCurrentYear = (student) => {
 const calculateCurrentLulusYear = (className, graduationDate) => {
   const originalYear = getYearFromClassString(className);
   if (originalYear === null) return 99; 
-
   const gradDate = graduationDate ? new Date(graduationDate) : new Date();
   const gradYear = gradDate.getFullYear();
   const currentYear = new Date().getFullYear();
-  
   const yearDiff = currentYear - gradYear;
   return originalYear + yearDiff;
 };
@@ -271,7 +268,6 @@ const getClassColorStyle = (className) => {
     { bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-900', icon: 'text-indigo-600' },
     { bg: 'bg-lime-50', border: 'border-lime-200', text: 'text-lime-900', icon: 'text-lime-600' },
   ];
-  
   let hash = 0;
   for (let i = 0; i < safeClassName.length; i++) {
     hash = safeClassName.charCodeAt(i) + ((hash << 5) - hash);
@@ -291,7 +287,6 @@ const getSubjectBadgeColor = (subject) => {
 
 const calculateLastUpdated = (studentList) => {
   if (!studentList || studentList.length === 0) return null;
-  
   let maxDate = 0;
   studentList.forEach(student => {
     if (student.updatedAt) {
@@ -305,18 +300,12 @@ const calculateLastUpdated = (studentList) => {
       } catch (e) {
         timestamp = 0;
       }
-      
       if (!isNaN(timestamp) && timestamp > maxDate) maxDate = timestamp;
     }
   });
-  
   if (maxDate === 0) return null;
-  
   const date = new Date(maxDate);
-  return date.toLocaleDateString('en-GB', { 
-    day: 'numeric', month: 'short', year: 'numeric', 
-    hour: '2-digit', minute: '2-digit' 
-  });
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
 const formatDate = (timestamp) => {
@@ -517,6 +506,64 @@ export default function StudentDatabaseApp() {
     } catch (err) { console.error("Error saving:", err); }
   };
 
+  // --- EXPORT TO EXCEL FEATURE ---
+  const exportToExcel = () => {
+    if (!students || students.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+
+    const workbook = XLSX.utils.book_new();
+
+    const formatStudent = (s) => ({
+      Name: s.name,
+      Gender: s.gender,
+      IC: s.ic || '',
+      Class: s.className || '',
+      Subject: s.subject || '',
+      Program: s.program === 'mbk' ? (s.mbkType || 'MBK') : 'Pemulihan',
+      Status: s.status,
+      Remarks: s.remarks || '',
+      DocLink: s.docLink || '',
+      LastUpdated: s.updatedAt ? new Date(s.updatedAt.toDate ? s.updatedAt.toDate() : s.updatedAt).toLocaleDateString() : ''
+    });
+
+    const profileData = students.filter(s => {
+       const year = getStudentCurrentYear(s);
+       return s.program === 'pemulihan' && s.status !== 'Lulus' && year <= 3;
+    }).map(formatStudent);
+    if(profileData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(profileData);
+      XLSX.utils.book_append_sheet(workbook, ws, "Profile (1-3)");
+    }
+
+    const planData = students.filter(s => {
+       const year = getStudentCurrentYear(s);
+       return s.program === 'pemulihan' && s.status !== 'Lulus' && year >= 4 && year <= 6;
+    }).map(formatStudent);
+    if(planData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(planData);
+      XLSX.utils.book_append_sheet(workbook, ws, "PLaN (4-6)");
+    }
+
+    const mbkData = students.filter(s => s.program === 'mbk').map(formatStudent);
+    if(mbkData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(mbkData);
+      XLSX.utils.book_append_sheet(workbook, ws, "MBK");
+    }
+
+    const lulusData = students.filter(s => s.status === 'Lulus').map(s => ({
+      ...formatStudent(s),
+      GraduationDate: s.graduationDate || ''
+    }));
+    if(lulusData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(lulusData);
+      XLSX.utils.book_append_sheet(workbook, ws, "Lulus");
+    }
+
+    XLSX.writeFile(workbook, "Student_Database.xlsx");
+  };
+
   const confirmDelete = (student) => {
     if (!user || role !== 'admin') return;
     setDeleteConfirmation({ isOpen: true, studentId: student.id, studentName: student.name });
@@ -637,23 +684,6 @@ export default function StudentDatabaseApp() {
   const resetForm = () => {
     setEditingId(null);
     setFormData({ name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false });
-  };
-
-  const exportToCSV = () => {
-    const headers = ["ID,Name,Program,IC,Gender,MBK_Type,Class,Subject,Status,GraduationDate,Remarks,DocLink"];
-    const rows = filteredStudents.map(s => {
-      const safeRemarks = s.remarks ? `"${s.remarks.replace(/"/g, '""')}"` : '';
-      const safeLink = s.docLink ? `"${s.docLink}"` : '';
-      return `${s.id},"${s.name}","${s.program || 'pemulihan'}",${s.ic || ''},${s.gender || 'Lelaki'},${s.mbkType || ''},"${s.className || ''}",${s.subject || ''},${s.status || 'Active'},${s.graduationDate || ''},${safeRemarks},${safeLink}`;
-    });
-    const csvContent = "data:text/csv;charset=utf-8," + headers.concat(rows).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `students_export.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   // --- Filtering & Derived State ---
@@ -902,8 +932,8 @@ export default function StudentDatabaseApp() {
                     <Plus size={18} strokeWidth={2.5} /> Add Student
                   </button>
                 )}
-                <button onClick={exportToCSV} className="flex-1 md:flex-none flex items-center justify-center gap-2 text-sm text-slate-600 hover:text-indigo-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-indigo-200 hover:shadow-md transition-all">
-                  <Download size={18} /> Export CSV
+                <button onClick={exportToExcel} className="flex-1 md:flex-none flex items-center justify-center gap-2 text-sm text-slate-600 hover:text-indigo-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-indigo-200 hover:shadow-md transition-all">
+                  <Download size={18} /> Export Excel
                 </button>
               </div>
             </div>
@@ -933,6 +963,11 @@ export default function StudentDatabaseApp() {
                         </>
                       )}
                     </div>
+                    {student.isNewStudent && (
+                      <div className="absolute top-3 right-3 bg-red-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm animate-pulse z-10 flex items-center gap-1">
+                        <Sparkles size={10} /> NEW
+                      </div>
+                    )}
                     <h3 className="font-bold text-lg text-slate-900 mb-2 leading-tight">{student.name}</h3>
                     <div className="flex items-center gap-2 mb-6"><CreditCard size={16} className="text-slate-400" /><span className="font-bold text-lg text-slate-700 tracking-wide font-mono">{student.ic}</span></div>
                     <div className="space-y-3">
@@ -980,7 +1015,7 @@ export default function StudentDatabaseApp() {
                     Last updated: {lastUpdatedString}
                   </span>
                 )}
-                <button onClick={exportToCSV} className="flex items-center gap-2 text-sm text-slate-600 hover:text-purple-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-purple-200 hover:shadow-md transition-all"><Download size={18} /> Export CSV</button>
+                <button onClick={exportToExcel} className="flex items-center gap-2 text-sm text-slate-600 hover:text-purple-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-purple-200 hover:shadow-md transition-all"><Download size={18} /> Export Excel</button>
               </div>
             </div>
             {loading ? (
@@ -1002,17 +1037,22 @@ export default function StudentDatabaseApp() {
                             <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" />
                             <div><h4 className="font-bold text-slate-900 text-base leading-tight mb-1">{student.name}</h4><span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{student.gender}</span></div>
                           </div>
+                          {student.isNewStudent && (
+                            <div className="absolute top-3 right-3 bg-red-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm animate-pulse z-10 flex items-center gap-1">
+                              <Sparkles size={10} /> NEW
+                            </div>
+                          )}
                           {role === 'admin' && (
                             <>
                               <div className="hidden sm:flex absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
-                                <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors" title="Edit"><Edit2 size={16} /></button>
                                 <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-slate-400 hover:text-purple-600 transition-colors" title="Revert"><RotateCcw size={16} /></button>
                                 <button onClick={() => confirmDelete(student)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors" title="Delete"><Trash2 size={16} /></button>
+                                <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors" title="Edit"><Edit2 size={16} /></button>
                               </div>
                               <div className="sm:hidden w-full mt-4 pt-4 border-t border-slate-50 flex justify-around">
-                                <button onClick={() => openEdit(student)} className="p-2 text-slate-400 bg-slate-100 rounded-lg"><Edit2 size={18} /></button>
                                 <button onClick={() => toggleStudentStatus(student)} className="p-2 text-purple-500 bg-slate-100 rounded-lg"><RotateCcw size={18} /></button>
                                 <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-slate-100 rounded-lg"><Trash2 size={18} /></button>
+                                <button onClick={() => openEdit(student)} className="p-2 text-slate-400 bg-slate-100 rounded-lg"><Edit2 size={18} /></button>
                               </div>
                             </>
                           )}
@@ -1040,7 +1080,7 @@ export default function StudentDatabaseApp() {
                     Last updated: {lastUpdatedString}
                   </span>
                 )}
-                <button onClick={exportToCSV} className="flex items-center gap-2 text-sm text-slate-600 hover:text-blue-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-blue-200 hover:shadow-md transition-all"><Download size={18} /> Export CSV</button>
+                <button onClick={exportToExcel} className="flex items-center gap-2 text-sm text-slate-600 hover:text-blue-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-blue-200 hover:shadow-md transition-all"><Download size={18} /> Export Excel</button>
               </div>
             </div>
             {loading ? (
@@ -1062,11 +1102,13 @@ export default function StudentDatabaseApp() {
                             <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" />
                             <div><h4 className="font-bold text-slate-900 text-base leading-tight mb-1">{student.name}</h4><span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{student.gender}</span></div>
                           </div>
+                          
                           {student.isNewStudent && (
                             <div className="absolute top-3 right-3 bg-red-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm animate-pulse z-10 flex items-center gap-1">
                               <Sparkles size={10} /> NEW
                             </div>
                           )}
+
                           {role === 'admin' && (
                             <>
                               <div className="hidden sm:flex absolute top-4 right-4 gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
@@ -1112,7 +1154,6 @@ export default function StudentDatabaseApp() {
                 </div>
                 <div className="relative group">
                   <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-bold text-sm appearance-none transition-colors hover:bg-slate-100 cursor-pointer" value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
-                    <option value="All">Find: All Subjects</option>
                     {subjects.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
@@ -1128,7 +1169,7 @@ export default function StudentDatabaseApp() {
                 {role === 'admin' && currentSection === 'profile' && (
                   <button onClick={openAdd} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white px-5 py-2.5 rounded-xl shadow-md shadow-blue-200 transition-all hover:-translate-y-0.5 font-bold text-sm"><Plus size={18} strokeWidth={2.5} /> Add Student</button>
                 )}
-                <button onClick={exportToCSV} className="flex-1 lg:flex-none flex items-center justify-center gap-2 text-sm text-slate-600 hover:text-blue-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-blue-200 hover:shadow-md transition-all"><Download size={18} /> Export CSV</button>
+                <button onClick={exportToExcel} className="flex-1 lg:flex-none flex items-center justify-center gap-2 text-sm text-slate-600 hover:text-blue-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-blue-200 hover:shadow-md transition-all"><Download size={18} /> Export Excel</button>
               </div>
             </div>
 
