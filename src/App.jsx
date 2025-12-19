@@ -36,7 +36,8 @@ import {
   Link as LinkIcon,
   ZoomIn,
   ZoomOut,
-  Sparkles
+  Sparkles,
+  Maximize2
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -78,6 +79,30 @@ const db = getFirestore(app);
 const appId = 'my-school-database';
 
 // --- Components ---
+
+// Full Screen Image Viewer
+const ImageViewer = ({ src, onClose }) => {
+  if (!src) return null;
+  return (
+    <div 
+      className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 cursor-zoom-out animate-in fade-in duration-200" 
+      onClick={onClose}
+    >
+       <button 
+         onClick={onClose} 
+         className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors"
+       >
+         <X size={32} />
+       </button>
+       <img 
+         src={src} 
+         alt="Full Screen" 
+         className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" 
+         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the image itself
+       />
+    </div>
+  );
+};
 
 // Image Adjuster Component
 const ImageAdjuster = ({ imageSrc, onSave, onCancel }) => {
@@ -169,13 +194,16 @@ const ImageAdjuster = ({ imageSrc, onSave, onCancel }) => {
   );
 };
 
-const Avatar = ({ name, color, photoUrl, size = "w-12 h-12" }) => {
+const Avatar = ({ name, color, photoUrl, size = "w-12 h-12", onClick }) => {
+  const commonClasses = `${size} rounded-xl shadow-sm border-2 border-white ring-1 ring-gray-100 flex-shrink-0 ${onClick ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`;
+  
   if (photoUrl) {
     return (
       <img 
         src={photoUrl} 
         alt={name} 
-        className={`${size} rounded-xl object-cover object-top shadow-sm border-2 border-white ring-1 ring-gray-100 flex-shrink-0 bg-white`} 
+        className={`${commonClasses} object-cover object-top bg-white`}
+        onClick={onClick}
       />
     );
   }
@@ -188,7 +216,7 @@ const Avatar = ({ name, color, photoUrl, size = "w-12 h-12" }) => {
     .toUpperCase();
   
   return (
-    <div className={`${size} rounded-full flex items-center justify-center text-white font-bold shadow-sm border-2 border-white ring-1 ring-gray-100 ${color} flex-shrink-0`}>
+    <div className={`${commonClasses} flex items-center justify-center text-white font-bold shadow-sm ${color}`}>
       {initials}
     </div>
   );
@@ -343,6 +371,8 @@ export default function StudentDatabaseApp() {
   });
 
   const [rawImageSrc, setRawImageSrc] = useState(null);
+  const [fullScreenImage, setFullScreenImage] = useState(null); // State for Full Screen Image
+
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, studentId: null, studentName: '' });
   const [moveConfirmation, setMoveConfirmation] = useState({ isOpen: false, student: null, newStatus: '' });
   const [moveDate, setMoveDate] = useState(new Date().toISOString().split('T')[0]);
@@ -953,7 +983,7 @@ export default function StudentDatabaseApp() {
                   <div key={student.id} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl border border-slate-100 transition-all duration-300 hover:-translate-y-1 relative group overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
                     <div className="flex justify-between items-start mb-6">
-                      <Avatar name={student.name} color={student.color || 'bg-indigo-500'} photoUrl={student.photoUrl} size="w-20 h-20"/>
+                      <Avatar name={student.name} color={student.color || 'bg-indigo-500'} photoUrl={student.photoUrl} size="w-20 h-20" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
                       {role === 'admin' && (
                         <>
                           <div className="hidden sm:flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1015,7 +1045,7 @@ export default function StudentDatabaseApp() {
                     Last updated: {lastUpdatedString}
                   </span>
                 )}
-                <button onClick={exportToExcel} className="flex items-center gap-2 text-sm text-slate-600 hover:text-purple-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-purple-200 hover:shadow-md transition-all"><Download size={18} /> Export Excel</button>
+                <button onClick={exportToExcel} className="flex items-center gap-2 text-sm text-slate-600 hover:text-purple-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-purple-200 hover:shadow-md transition-all"><Download size={18} /> Export CSV</button>
               </div>
             </div>
             {loading ? (
@@ -1034,7 +1064,7 @@ export default function StudentDatabaseApp() {
                       {groupedLulusStudents[groupKey].students.map(student => (
                         <div key={student.id} className="bg-white border border-slate-300 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
                           <div className="flex items-center gap-4 mb-4">
-                            <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" />
+                            <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
                             <div><h4 className="font-bold text-slate-900 text-base leading-tight mb-1">{student.name}</h4><span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{student.gender}</span></div>
                           </div>
                           {student.isNewStudent && (
@@ -1099,7 +1129,7 @@ export default function StudentDatabaseApp() {
                        {groupedPlanStudents[groupKey].map(student => (
                          <div key={student.id} className="bg-white border border-slate-100 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
                            <div className="flex items-center gap-4 mb-4">
-                            <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" />
+                            <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
                             <div><h4 className="font-bold text-slate-900 text-base leading-tight mb-1">{student.name}</h4><span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{student.gender}</span></div>
                           </div>
                           
@@ -1196,7 +1226,7 @@ export default function StudentDatabaseApp() {
                         <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-300 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col sm:flex-row lg:flex-col items-center p-3 gap-4">
                           <div className={`absolute top-0 left-0 w-full sm:w-1.5 lg:w-full h-1.5 sm:h-full lg:h-1.5 ${studentStats.percent >= 75 ? 'bg-gradient-to-r sm:bg-gradient-to-b lg:bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-gradient-to-r sm:bg-gradient-to-b lg:bg-gradient-to-r from-amber-400 to-amber-600'}`}></div>
                           
-                          <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-20 h-20" />
+                          <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-20 h-20" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
                           
                           <div className="flex-1 w-full text-center sm:text-left lg:text-center">
                              <div className="flex items-center justify-center sm:justify-start lg:justify-center gap-2 mb-1">
@@ -1260,6 +1290,14 @@ export default function StudentDatabaseApp() {
             imageSrc={rawImageSrc}
             onSave={handleCropSave}
             onCancel={handleCropCancel}
+          />
+        )}
+
+        {/* Full Screen Image Viewer (Rendered at root level) */}
+        {fullScreenImage && (
+          <ImageViewer 
+            src={fullScreenImage}
+            onClose={() => setFullScreenImage(null)}
           />
         )}
       </main>
