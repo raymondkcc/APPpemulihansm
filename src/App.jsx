@@ -336,6 +336,16 @@ const calculateLastUpdated = (studentList) => {
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
+const formatDate = (timestamp) => {
+  if (!timestamp) return '';
+  try {
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch (e) {
+    return '';
+  }
+};
+
 // --- Main App Component ---
 export default function StudentDatabaseApp() {
   const [user, setUser] = useState(null);
@@ -789,10 +799,7 @@ export default function StudentDatabaseApp() {
       if (currentSection === 'stats') {
         if (program === 'mbk') return false;
         if (s.status === 'Lulus') return false;
-        // EXCLUDE PLaN (YEAR 4+) FROM STATS
-        const studentYearCalc = getStudentCurrentYear(s);
-        if (studentYearCalc > 3) return false;
-
+        
         const studentYear = getYearFromClassString(s.className);
         const filterYear = parseInt(statsFilters.year);
         const matchYear = statsFilters.year === 'All' || (studentYear !== null && studentYear === filterYear);
@@ -906,24 +913,27 @@ export default function StudentDatabaseApp() {
             </div>
             {filteredStudents.length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <table className="w-full text-left text-sm">
+                <div className="overflow-x-auto w-full">
+                <table className="w-full text-left text-sm whitespace-nowrap md:whitespace-normal">
                   <thead className="bg-slate-50 border-b border-slate-100">
                     <tr>
-                      <th className="px-6 py-4 font-bold text-slate-600">Name</th>
-                      <th className="px-6 py-4 font-bold text-slate-600">Gender</th>
-                      <th className="px-6 py-4 font-bold text-slate-600">Class</th>
-                      <th className="px-6 py-4 font-bold text-slate-600">Subject</th>
-                      <th className="px-6 py-4 font-bold text-slate-600">Status</th>
+                      <th className="px-4 py-3 md:px-6 md:py-4 font-bold text-slate-600">Name</th>
+                      <th className="px-4 py-3 md:px-6 md:py-4 font-bold text-slate-600">Gender</th>
+                      <th className="px-4 py-3 md:px-6 md:py-4 font-bold text-slate-600">Class</th>
+                      <th className="px-4 py-3 md:px-6 md:py-4 font-bold text-slate-600">Subject</th>
+                      <th className="px-4 py-3 md:px-6 md:py-4 font-bold text-slate-600">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {filteredStudents.map(student => (
                       <tr key={student.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="px-6 py-4 font-bold text-slate-800">{student.name}</td>
-                        <td className="px-6 py-4 text-slate-500">{student.gender || 'Lelaki'}</td>
-                        <td className="px-6 py-4 text-slate-500 font-mono text-xs bg-slate-100 rounded px-2 py-1 w-fit mx-6">{student.className}</td>
-                        <td className="px-6 py-4 text-slate-500">{student.subject}</td>
-                         <td className="px-6 py-4">
+                        <td className="px-4 py-3 md:px-6 md:py-4 font-bold text-slate-800">{student.name}</td>
+                        <td className="px-4 py-3 md:px-6 md:py-4 text-slate-500">{student.gender || 'Lelaki'}</td>
+                        <td className="px-4 py-3 md:px-6 md:py-4 text-slate-500 font-mono text-xs">
+                          <span className="bg-slate-100 rounded px-2 py-1">{student.className}</span>
+                        </td>
+                        <td className="px-4 py-3 md:px-6 md:py-4 text-slate-500">{student.subject}</td>
+                         <td className="px-4 py-3 md:px-6 md:py-4">
                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${student.status === 'Lulus' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
                              {student.status || 'Active'}
                            </span>
@@ -932,6 +942,7 @@ export default function StudentDatabaseApp() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
           </div>
@@ -1068,9 +1079,9 @@ export default function StudentDatabaseApp() {
 
                             {role === 'admin' && (
                                 <div className="hidden sm:flex flex-col absolute top-2 right-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
-                                    <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors"><Edit2 size={14} /></button>
-                                    <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 hover:bg-purple-50 rounded"><RotateCcw size={14} /></button>
-                                    <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
+                                    <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors" title="Edit"><Edit2 size={14} /></button>
+                                    <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-slate-400 hover:text-purple-600 transition-colors" title="Revert"><RotateCcw size={16} /></button>
+                                    <button onClick={() => confirmDelete(student)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors" title="Delete"><Trash2 size={16} /></button>
                                 </div>
                             )}
                           </div>
@@ -1188,7 +1199,6 @@ export default function StudentDatabaseApp() {
                 </div>
                 <div className="relative group">
                   <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-bold text-sm appearance-none transition-colors hover:bg-slate-100 cursor-pointer" value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
-                    <option value="All">Find: All Subjects</option>
                     {subjects.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
