@@ -36,8 +36,7 @@ import {
   Link as LinkIcon,
   ZoomIn,
   ZoomOut,
-  Sparkles,
-  Maximize2
+  Sparkles
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -79,30 +78,6 @@ const db = getFirestore(app);
 const appId = 'my-school-database';
 
 // --- Components ---
-
-// Full Screen Image Viewer
-const ImageViewer = ({ src, onClose }) => {
-  if (!src) return null;
-  return (
-    <div 
-      className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 cursor-zoom-out animate-in fade-in duration-200" 
-      onClick={onClose}
-    >
-       <button 
-         onClick={onClose} 
-         className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors"
-       >
-         <X size={32} />
-       </button>
-       <img 
-         src={src} 
-         alt="Full Screen" 
-         className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" 
-         onClick={(e) => e.stopPropagation()} 
-       />
-    </div>
-  );
-};
 
 // Image Adjuster Component
 const ImageAdjuster = ({ imageSrc, onSave, onCancel }) => {
@@ -190,6 +165,30 @@ const ImageAdjuster = ({ imageSrc, onSave, onCancel }) => {
         </div>
         <canvas ref={canvasRef} className="hidden"></canvas>
       </div>
+    </div>
+  );
+};
+
+// Full Screen Image Viewer
+const ImageViewer = ({ src, onClose }) => {
+  if (!src) return null;
+  return (
+    <div 
+      className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 cursor-zoom-out animate-in fade-in duration-200" 
+      onClick={onClose}
+    >
+       <button 
+         onClick={onClose} 
+         className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors"
+       >
+         <X size={32} />
+       </button>
+       <img 
+         src={src} 
+         alt="Full Screen" 
+         className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" 
+         onClick={(e) => e.stopPropagation()} 
+       />
     </div>
   );
 };
@@ -334,16 +333,6 @@ const calculateLastUpdated = (studentList) => {
   if (maxDate === 0) return null;
   const date = new Date(maxDate);
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-};
-
-const formatDate = (timestamp) => {
-  if (!timestamp) return '';
-  try {
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  } catch (e) {
-    return '';
-  }
 };
 
 // --- Main App Component ---
@@ -536,64 +525,6 @@ export default function StudentDatabaseApp() {
     } catch (err) { console.error("Error saving:", err); }
   };
 
-  // --- EXPORT TO EXCEL FEATURE ---
-  const exportToExcel = () => {
-    if (!students || students.length === 0) {
-      alert("No data to export.");
-      return;
-    }
-
-    const workbook = XLSX.utils.book_new();
-
-    const formatStudent = (s) => ({
-      Name: s.name,
-      Gender: s.gender,
-      IC: s.ic || '',
-      Class: s.className || '',
-      Subject: s.subject || '',
-      Program: s.program === 'mbk' ? (s.mbkType || 'MBK') : 'Pemulihan',
-      Status: s.status,
-      Remarks: s.remarks || '',
-      DocLink: s.docLink || '',
-      LastUpdated: s.updatedAt ? new Date(s.updatedAt.toDate ? s.updatedAt.toDate() : s.updatedAt).toLocaleDateString() : ''
-    });
-
-    const profileData = students.filter(s => {
-       const year = getStudentCurrentYear(s);
-       return s.program === 'pemulihan' && s.status !== 'Lulus' && year <= 3;
-    }).map(formatStudent);
-    if(profileData.length > 0) {
-      const ws = XLSX.utils.json_to_sheet(profileData);
-      XLSX.utils.book_append_sheet(workbook, ws, "Profile (1-3)");
-    }
-
-    const planData = students.filter(s => {
-       const year = getStudentCurrentYear(s);
-       return s.program === 'pemulihan' && s.status !== 'Lulus' && year >= 4 && year <= 6;
-    }).map(formatStudent);
-    if(planData.length > 0) {
-      const ws = XLSX.utils.json_to_sheet(planData);
-      XLSX.utils.book_append_sheet(workbook, ws, "PLaN (4-6)");
-    }
-
-    const mbkData = students.filter(s => s.program === 'mbk').map(formatStudent);
-    if(mbkData.length > 0) {
-      const ws = XLSX.utils.json_to_sheet(mbkData);
-      XLSX.utils.book_append_sheet(workbook, ws, "MBK");
-    }
-
-    const lulusData = students.filter(s => s.status === 'Lulus').map(s => ({
-      ...formatStudent(s),
-      GraduationDate: s.graduationDate || ''
-    }));
-    if(lulusData.length > 0) {
-      const ws = XLSX.utils.json_to_sheet(lulusData);
-      XLSX.utils.book_append_sheet(workbook, ws, "Lulus");
-    }
-
-    XLSX.writeFile(workbook, "Student_Database.xlsx");
-  };
-
   const confirmDelete = (student) => {
     if (!user || role !== 'admin') return;
     setDeleteConfirmation({ isOpen: true, studentId: student.id, studentName: student.name });
@@ -714,6 +645,63 @@ export default function StudentDatabaseApp() {
   const resetForm = () => {
     setEditingId(null);
     setFormData({ name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false });
+  };
+
+  const exportToExcel = () => {
+    if (!students || students.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+
+    const workbook = XLSX.utils.book_new();
+
+    const formatStudent = (s) => ({
+      Name: s.name,
+      Gender: s.gender,
+      IC: s.ic || '',
+      Class: s.className || '',
+      Subject: s.subject || '',
+      Program: s.program === 'mbk' ? (s.mbkType || 'MBK') : 'Pemulihan',
+      Status: s.status,
+      Remarks: s.remarks || '',
+      DocLink: s.docLink || '',
+      LastUpdated: s.updatedAt ? new Date(s.updatedAt.toDate ? s.updatedAt.toDate() : s.updatedAt).toLocaleDateString() : ''
+    });
+
+    const profileData = students.filter(s => {
+       const year = getStudentCurrentYear(s);
+       return s.program === 'pemulihan' && s.status !== 'Lulus' && year <= 3;
+    }).map(formatStudent);
+    if(profileData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(profileData);
+      XLSX.utils.book_append_sheet(workbook, ws, "Profile (1-3)");
+    }
+
+    const planData = students.filter(s => {
+       const year = getStudentCurrentYear(s);
+       return s.program === 'pemulihan' && s.status !== 'Lulus' && year >= 4 && year <= 6;
+    }).map(formatStudent);
+    if(planData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(planData);
+      XLSX.utils.book_append_sheet(workbook, ws, "PLaN (4-6)");
+    }
+
+    const mbkData = students.filter(s => s.program === 'mbk').map(formatStudent);
+    if(mbkData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(mbkData);
+      XLSX.utils.book_append_sheet(workbook, ws, "MBK");
+    }
+
+    const lulusData = students.filter(s => s.status === 'Lulus').map(s => ({
+      ...formatStudent(s),
+      GraduationDate: s.graduationDate || ''
+    }));
+    if(lulusData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(lulusData);
+      XLSX.utils.book_append_sheet(workbook, ws, "Lulus");
+    }
+
+    XLSX.writeFile(workbook, "Student_Database.xlsx");
   };
 
   // --- Filtering & Derived State ---
@@ -1007,6 +995,13 @@ export default function StudentDatabaseApp() {
                              <FileText size={12} /> {student.docLink ? 'View Docs' : 'No Docs'}
                            </button>
                         </div>
+
+                        {/* Mobile Admin Buttons */}
+                        {role === 'admin' && (
+                            <div className="sm:hidden grid grid-cols-2 gap-1 mt-2 w-full max-w-[80px] -ml-[74px] relative top-[4px]">
+                               {/* Moved buttons under Avatar area using margin-left hack to align left */}
+                            </div>
+                        )}
                       </div>
 
                       {role === 'admin' && (
@@ -1017,11 +1012,11 @@ export default function StudentDatabaseApp() {
                       )}
                     </div>
                     
-                    {/* Mobile Admin Buttons */}
+                    {/* Mobile Admin Buttons - Fixed Layout */}
                     {role === 'admin' && (
-                        <div className="sm:hidden absolute bottom-2 right-2 flex gap-1 bg-white/90 p-1 rounded-lg shadow-sm border border-slate-100">
-                           <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded hover:bg-slate-100"><Edit2 size={14} /></button>
-                           <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded hover:bg-red-100"><Trash2 size={14} /></button>
+                        <div className="sm:hidden flex justify-end gap-2 p-2 pt-0">
+                           <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded hover:bg-slate-100 shadow-sm"><Edit2 size={14} /></button>
+                           <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded hover:bg-red-100 shadow-sm"><Trash2 size={14} /></button>
                         </div>
                     )}
                     
@@ -1063,7 +1058,7 @@ export default function StudentDatabaseApp() {
                       <h3 className="font-extrabold text-purple-900 text-lg flex items-center gap-2"><Calendar className="text-purple-500" size={20} />{groupKey}</h3>
                       <span className="text-xs font-bold bg-white text-purple-700 px-3 py-1.5 rounded-lg border border-purple-100 shadow-sm">{groupedLulusStudents[groupKey].students.length} Students</span>
                     </div>
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {groupedLulusStudents[groupKey].students.map(student => (
                         <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-300 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col">
                           <div className="flex flex-row items-start p-3 gap-3 relative z-10">
@@ -1088,7 +1083,7 @@ export default function StudentDatabaseApp() {
                           
                           {/* Mobile Admin Buttons */}
                            {role === 'admin' && (
-                                <div className="sm:hidden absolute bottom-2 right-2 flex gap-1 bg-white/90 p-1 rounded-lg shadow-sm border border-slate-100">
+                                <div className="sm:hidden flex justify-end gap-2 p-2 pt-0">
                                    <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded hover:bg-slate-100"><Edit2 size={14} /></button>
                                    <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 bg-purple-50 rounded hover:bg-purple-100"><RotateCcw size={14} /></button>
                                    <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded hover:bg-red-100"><Trash2 size={14} /></button>
@@ -1152,17 +1147,17 @@ export default function StudentDatabaseApp() {
                                 <div className="hidden sm:flex flex-col absolute top-2 right-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
                                    <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded transition-colors"><StickyNote size={14} /></button>
                                    <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded transition-colors"><Trash2 size={14} /></button>
-                                   <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded transition-colors"><Edit2 size={14} /></button>
+                                   <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded transition-colors"><Edit2 size={16} /></button>
                                 </div>
                              )}
                            </div>
 
-                           {/* Mobile Admin Buttons */}
-                           {role === 'admin' && (
-                                <div className="sm:hidden absolute bottom-2 right-2 flex gap-1 bg-white/90 p-1 rounded-lg shadow-sm border border-slate-100">
-                                   <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 bg-amber-50 rounded hover:bg-amber-100"><StickyNote size={14} /></button>
-                                   <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded hover:bg-slate-100"><Edit2 size={14} /></button>
-                                   <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded hover:bg-red-100"><Trash2 size={14} /></button>
+                           {/* Mobile Admin Buttons - Placed under avatar in layout */}
+                            {role === 'admin' && (
+                                <div className="sm:hidden absolute top-[70px] left-3 flex flex-col gap-1 z-20">
+                                   <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 bg-amber-50 rounded border border-amber-100 shadow-sm"><StickyNote size={12} /></button>
+                                   <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded border border-slate-100 shadow-sm"><Edit2 size={12} /></button>
+                                   <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded border border-red-100 shadow-sm"><Trash2 size={12} /></button>
                                 </div>
                             )}
                             
@@ -1272,12 +1267,12 @@ export default function StudentDatabaseApp() {
                           
                            {/* Mobile Admin Buttons */}
                            {role === 'admin' && (
-                                <div className="sm:hidden absolute bottom-2 right-2 flex gap-1 bg-white/90 p-1 rounded-lg shadow-sm border border-slate-100">
-                                   <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 bg-amber-50 rounded hover:bg-amber-100"><StickyNote size={14} /></button>
-                                   <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 bg-blue-50 rounded hover:bg-blue-100"><Calendar size={14} /></button>
-                                   <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded hover:bg-slate-100"><Edit2 size={14} /></button>
-                                   <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 bg-purple-50 rounded hover:bg-purple-100"><ArrowRight size={14} /></button>
-                                   <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded hover:bg-red-100"><Trash2 size={14} /></button>
+                                <div className="sm:hidden absolute top-[70px] left-3 flex flex-col gap-1 z-20">
+                                   <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 bg-amber-50 rounded border border-amber-100 shadow-sm"><StickyNote size={12} /></button>
+                                   <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 bg-blue-50 rounded border border-blue-100 shadow-sm"><Calendar size={12} /></button>
+                                   <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded border border-slate-100 shadow-sm"><Edit2 size={12} /></button>
+                                   <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 bg-purple-50 rounded border border-purple-100 shadow-sm"><ArrowRight size={12} /></button>
+                                   <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded border border-red-100 shadow-sm"><Trash2 size={12} /></button>
                                 </div>
                             )}
 
