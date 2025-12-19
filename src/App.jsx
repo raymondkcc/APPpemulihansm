@@ -36,7 +36,8 @@ import {
   Link as LinkIcon,
   ZoomIn,
   ZoomOut,
-  Sparkles
+  Sparkles,
+  Maximize2
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -525,6 +526,64 @@ export default function StudentDatabaseApp() {
     } catch (err) { console.error("Error saving:", err); }
   };
 
+  // --- EXPORT TO EXCEL FEATURE ---
+  const exportToExcel = () => {
+    if (!students || students.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+
+    const workbook = XLSX.utils.book_new();
+
+    const formatStudent = (s) => ({
+      Name: s.name,
+      Gender: s.gender,
+      IC: s.ic || '',
+      Class: s.className || '',
+      Subject: s.subject || '',
+      Program: s.program === 'mbk' ? (s.mbkType || 'MBK') : 'Pemulihan',
+      Status: s.status,
+      Remarks: s.remarks || '',
+      DocLink: s.docLink || '',
+      LastUpdated: s.updatedAt ? new Date(s.updatedAt.toDate ? s.updatedAt.toDate() : s.updatedAt).toLocaleDateString() : ''
+    });
+
+    const profileData = students.filter(s => {
+       const year = getStudentCurrentYear(s);
+       return s.program === 'pemulihan' && s.status !== 'Lulus' && year <= 3;
+    }).map(formatStudent);
+    if(profileData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(profileData);
+      XLSX.utils.book_append_sheet(workbook, ws, "Profile (1-3)");
+    }
+
+    const planData = students.filter(s => {
+       const year = getStudentCurrentYear(s);
+       return s.program === 'pemulihan' && s.status !== 'Lulus' && year >= 4 && year <= 6;
+    }).map(formatStudent);
+    if(planData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(planData);
+      XLSX.utils.book_append_sheet(workbook, ws, "PLaN (4-6)");
+    }
+
+    const mbkData = students.filter(s => s.program === 'mbk').map(formatStudent);
+    if(mbkData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(mbkData);
+      XLSX.utils.book_append_sheet(workbook, ws, "MBK");
+    }
+
+    const lulusData = students.filter(s => s.status === 'Lulus').map(s => ({
+      ...formatStudent(s),
+      GraduationDate: s.graduationDate || ''
+    }));
+    if(lulusData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(lulusData);
+      XLSX.utils.book_append_sheet(workbook, ws, "Lulus");
+    }
+
+    XLSX.writeFile(workbook, "Student_Database.xlsx");
+  };
+
   const confirmDelete = (student) => {
     if (!user || role !== 'admin') return;
     setDeleteConfirmation({ isOpen: true, studentId: student.id, studentName: student.name });
@@ -647,63 +706,6 @@ export default function StudentDatabaseApp() {
     setFormData({ name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false });
   };
 
-  const exportToExcel = () => {
-    if (!students || students.length === 0) {
-      alert("No data to export.");
-      return;
-    }
-
-    const workbook = XLSX.utils.book_new();
-
-    const formatStudent = (s) => ({
-      Name: s.name,
-      Gender: s.gender,
-      IC: s.ic || '',
-      Class: s.className || '',
-      Subject: s.subject || '',
-      Program: s.program === 'mbk' ? (s.mbkType || 'MBK') : 'Pemulihan',
-      Status: s.status,
-      Remarks: s.remarks || '',
-      DocLink: s.docLink || '',
-      LastUpdated: s.updatedAt ? new Date(s.updatedAt.toDate ? s.updatedAt.toDate() : s.updatedAt).toLocaleDateString() : ''
-    });
-
-    const profileData = students.filter(s => {
-       const year = getStudentCurrentYear(s);
-       return s.program === 'pemulihan' && s.status !== 'Lulus' && year <= 3;
-    }).map(formatStudent);
-    if(profileData.length > 0) {
-      const ws = XLSX.utils.json_to_sheet(profileData);
-      XLSX.utils.book_append_sheet(workbook, ws, "Profile (1-3)");
-    }
-
-    const planData = students.filter(s => {
-       const year = getStudentCurrentYear(s);
-       return s.program === 'pemulihan' && s.status !== 'Lulus' && year >= 4 && year <= 6;
-    }).map(formatStudent);
-    if(planData.length > 0) {
-      const ws = XLSX.utils.json_to_sheet(planData);
-      XLSX.utils.book_append_sheet(workbook, ws, "PLaN (4-6)");
-    }
-
-    const mbkData = students.filter(s => s.program === 'mbk').map(formatStudent);
-    if(mbkData.length > 0) {
-      const ws = XLSX.utils.json_to_sheet(mbkData);
-      XLSX.utils.book_append_sheet(workbook, ws, "MBK");
-    }
-
-    const lulusData = students.filter(s => s.status === 'Lulus').map(s => ({
-      ...formatStudent(s),
-      GraduationDate: s.graduationDate || ''
-    }));
-    if(lulusData.length > 0) {
-      const ws = XLSX.utils.json_to_sheet(lulusData);
-      XLSX.utils.book_append_sheet(workbook, ws, "Lulus");
-    }
-
-    XLSX.writeFile(workbook, "Student_Database.xlsx");
-  };
-
   // --- Filtering & Derived State ---
   
   const availableYears = useMemo(() => {
@@ -787,7 +789,10 @@ export default function StudentDatabaseApp() {
       if (currentSection === 'stats') {
         if (program === 'mbk') return false;
         if (s.status === 'Lulus') return false;
-        
+        // EXCLUDE PLaN (YEAR 4+) FROM STATS
+        const studentYearCalc = getStudentCurrentYear(s);
+        if (studentYearCalc > 3) return false;
+
         const studentYear = getYearFromClassString(s.className);
         const filterYear = parseInt(statsFilters.year);
         const matchYear = statsFilters.year === 'All' || (studentYear !== null && studentYear === filterYear);
@@ -996,10 +1001,11 @@ export default function StudentDatabaseApp() {
                            </button>
                         </div>
 
-                        {/* Mobile Admin Buttons */}
+                         {/* Mobile Admin Buttons - Placed under avatar area - 2 Columns */}
                         {role === 'admin' && (
-                            <div className="sm:hidden grid grid-cols-2 gap-1 mt-2 w-full max-w-[80px] -ml-[74px] relative top-[4px]">
-                               {/* Moved buttons under Avatar area using margin-left hack to align left */}
+                            <div className="sm:hidden grid grid-cols-2 gap-1 mt-2 w-[70px] -ml-[74px] relative top-[4px]">
+                               <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded border border-slate-100 shadow-sm flex items-center justify-center"><Edit2 size={12} /></button>
+                               <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded border border-red-100 shadow-sm flex items-center justify-center"><Trash2 size={12} /></button>
                             </div>
                         )}
                       </div>
@@ -1011,14 +1017,6 @@ export default function StudentDatabaseApp() {
                         </div>
                       )}
                     </div>
-                    
-                    {/* Mobile Admin Buttons - Fixed Layout */}
-                    {role === 'admin' && (
-                        <div className="sm:hidden flex justify-end gap-2 p-2 pt-0">
-                           <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded hover:bg-slate-100 shadow-sm"><Edit2 size={14} /></button>
-                           <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded hover:bg-red-100 shadow-sm"><Trash2 size={14} /></button>
-                        </div>
-                    )}
                     
                     {student.isNewStudent && (
                       <div className="absolute top-2 left-3 sm:left-4 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
@@ -1070,6 +1068,15 @@ export default function StudentDatabaseApp() {
                                 <div className="text-xs font-medium text-slate-600 mb-0.5">{student.subject}</div>
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">{student.gender}</div>
                                 <div className="text-[10px] text-purple-600 font-semibold bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100 inline-block">Graduated: {student.graduationDate}</div>
+
+                                 {/* Mobile Admin Buttons - Placed under avatar - 2 Cols */}
+                                {role === 'admin' && (
+                                    <div className="sm:hidden grid grid-cols-2 gap-1 mt-2 w-[70px] -ml-[74px] relative top-[4px]">
+                                       <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded border border-slate-100 shadow-sm flex items-center justify-center"><Edit2 size={12} /></button>
+                                       <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 bg-purple-50 rounded border border-purple-100 shadow-sm flex items-center justify-center"><RotateCcw size={12} /></button>
+                                       <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded border border-red-100 shadow-sm flex items-center justify-center col-span-2"><Trash2 size={12} /></button>
+                                    </div>
+                                )}
                             </div>
 
                             {role === 'admin' && (
@@ -1081,15 +1088,6 @@ export default function StudentDatabaseApp() {
                             )}
                           </div>
                           
-                          {/* Mobile Admin Buttons */}
-                           {role === 'admin' && (
-                                <div className="sm:hidden flex justify-end gap-2 p-2 pt-0">
-                                   <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded hover:bg-slate-100"><Edit2 size={14} /></button>
-                                   <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 bg-purple-50 rounded hover:bg-purple-100"><RotateCcw size={14} /></button>
-                                   <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded hover:bg-red-100"><Trash2 size={14} /></button>
-                                </div>
-                            )}
-                            
                            {student.isNewStudent && (
                             <div className="absolute top-2 left-3 sm:left-4 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
                               <span className="w-1.5 h-1.5 bg-white rounded-full"></span> NEW
@@ -1141,6 +1139,15 @@ export default function StudentDatabaseApp() {
                                 <h3 className="font-bold text-sm text-slate-900 leading-tight mb-1 break-words">{student.name}</h3>
                                 <div className="text-xs font-medium text-slate-600 mb-0.5">{student.subject}</div>
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">{student.gender}</div>
+
+                                {/* Mobile Admin Buttons - 2 Cols */}
+                                {role === 'admin' && (
+                                    <div className="sm:hidden grid grid-cols-2 gap-1 mt-2 w-[70px] -ml-[74px] relative top-[4px]">
+                                       <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 bg-amber-50 rounded border border-amber-100 shadow-sm flex items-center justify-center"><StickyNote size={12} /></button>
+                                       <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded border border-slate-100 shadow-sm flex items-center justify-center"><Edit2 size={12} /></button>
+                                       <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded border border-red-100 shadow-sm flex items-center justify-center col-span-2"><Trash2 size={12} /></button>
+                                    </div>
+                                )}
                              </div>
 
                              {role === 'admin' && (
@@ -1151,15 +1158,6 @@ export default function StudentDatabaseApp() {
                                 </div>
                              )}
                            </div>
-
-                           {/* Mobile Admin Buttons - Placed under avatar in layout */}
-                            {role === 'admin' && (
-                                <div className="sm:hidden absolute top-[70px] left-3 flex flex-col gap-1 z-20">
-                                   <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 bg-amber-50 rounded border border-amber-100 shadow-sm"><StickyNote size={12} /></button>
-                                   <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded border border-slate-100 shadow-sm"><Edit2 size={12} /></button>
-                                   <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded border border-red-100 shadow-sm"><Trash2 size={12} /></button>
-                                </div>
-                            )}
                             
                            {student.isNewStudent && (
                             <div className="absolute top-2 left-3 sm:left-4 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
@@ -1194,6 +1192,7 @@ export default function StudentDatabaseApp() {
                 </div>
                 <div className="relative group">
                   <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-bold text-sm appearance-none transition-colors hover:bg-slate-100 cursor-pointer" value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
+                    <option value="All">Find: All Subjects</option>
                     {subjects.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
@@ -1252,6 +1251,17 @@ export default function StudentDatabaseApp() {
                                   </div>
                                   <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div className={`h-full rounded-full ${studentStats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${studentStats.percent}%` }}></div></div>
                                 </div>
+
+                                {/* Mobile Admin Buttons - 2 Cols */}
+                                {role === 'admin' && (
+                                    <div className="sm:hidden grid grid-cols-2 gap-1 mt-2 w-[70px] -ml-[74px] relative top-[4px]">
+                                       <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 bg-amber-50 rounded border border-amber-100 shadow-sm flex items-center justify-center"><StickyNote size={12} /></button>
+                                       <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 bg-blue-50 rounded border border-blue-100 shadow-sm flex items-center justify-center"><Calendar size={12} /></button>
+                                       <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded border border-slate-100 shadow-sm flex items-center justify-center"><Edit2 size={12} /></button>
+                                       <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 bg-purple-50 rounded border border-purple-100 shadow-sm flex items-center justify-center"><ArrowRight size={12} /></button>
+                                       <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded border border-red-100 shadow-sm flex items-center justify-center col-span-2"><Trash2 size={12} /></button>
+                                    </div>
+                                )}
                               </div>
 
                               {role === 'admin' && (
@@ -1264,17 +1274,6 @@ export default function StudentDatabaseApp() {
                                 </div>
                               )}
                           </div>
-                          
-                           {/* Mobile Admin Buttons */}
-                           {role === 'admin' && (
-                                <div className="sm:hidden absolute top-[70px] left-3 flex flex-col gap-1 z-20">
-                                   <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 bg-amber-50 rounded border border-amber-100 shadow-sm"><StickyNote size={12} /></button>
-                                   <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 bg-blue-50 rounded border border-blue-100 shadow-sm"><Calendar size={12} /></button>
-                                   <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded border border-slate-100 shadow-sm"><Edit2 size={12} /></button>
-                                   <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 bg-purple-50 rounded border border-purple-100 shadow-sm"><ArrowRight size={12} /></button>
-                                   <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded border border-red-100 shadow-sm"><Trash2 size={12} /></button>
-                                </div>
-                            )}
 
                           {student.isNewStudent && (
                             <div className="absolute top-2 left-3 sm:left-4 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
