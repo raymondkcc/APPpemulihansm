@@ -98,7 +98,7 @@ const ImageViewer = ({ src, onClose }) => {
          src={src} 
          alt="Full Screen" 
          className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" 
-         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the image itself
+         onClick={(e) => e.stopPropagation()} 
        />
     </div>
   );
@@ -336,16 +336,6 @@ const calculateLastUpdated = (studentList) => {
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
-const formatDate = (timestamp) => {
-  if (!timestamp) return '';
-  try {
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  } catch (e) {
-    return '';
-  }
-};
-
 // --- Main App Component ---
 export default function StudentDatabaseApp() {
   const [user, setUser] = useState(null);
@@ -371,7 +361,7 @@ export default function StudentDatabaseApp() {
   });
 
   const [rawImageSrc, setRawImageSrc] = useState(null);
-  const [fullScreenImage, setFullScreenImage] = useState(null); // State for Full Screen Image
+  const [fullScreenImage, setFullScreenImage] = useState(null); 
 
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, studentId: null, studentName: '' });
   const [moveConfirmation, setMoveConfirmation] = useState({ isOpen: false, student: null, newStatus: '' });
@@ -976,56 +966,58 @@ export default function StudentDatabaseApp() {
                 <p className="text-slate-500">Currently showing Year 1 to Year 6 only.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                 {filteredStudents.map(student => {
                   const year = calculateSchoolYearFromIC(student.ic);
                   return (
-                  <div key={student.id} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl border border-slate-100 transition-all duration-300 hover:-translate-y-1 relative group overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
-                    <div className="flex justify-between items-start mb-6">
-                      <Avatar name={student.name} color={student.color || 'bg-indigo-500'} photoUrl={student.photoUrl} size="w-20 h-20" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+                  <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-200 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col">
+                    <div className="flex flex-row items-start p-3 gap-3 relative z-10">
+                      <div className="absolute top-0 left-0 w-full sm:w-1.5 h-1.5 sm:h-full bg-gradient-to-r sm:bg-gradient-to-b from-indigo-500 to-purple-500"></div>
+                      <Avatar name={student.name} color={student.color || 'bg-indigo-500'} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+                      
+                      <div className="flex-1 min-w-0 text-left">
+                        <h3 className="font-bold text-sm text-slate-900 leading-tight mb-1 break-words">{student.name}</h3>
+                        <div className="text-xs font-medium text-slate-600 mb-0.5">{year < 1 ? 'Pra-sekolah' : `Tahun ${year}`}</div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-1">
+                          {student.gender || 'Lelaki'}
+                          <span className={`px-1.5 py-0.5 rounded border text-[9px] ${student.mbkType === 'OKU' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{student.mbkType || 'MBK'}</span>
+                        </div>
+                        
+                        {/* Remarks Section Compact */}
+                        {student.remarks && (
+                           <div className="text-[10px] text-slate-500 italic bg-yellow-50 px-2 py-1 rounded border border-yellow-100 flex items-start gap-1 mt-1">
+                              <MessageSquare size={10} className="mt-0.5 flex-shrink-0" />
+                              <span className="line-clamp-2">{student.remarks}</span>
+                           </div>
+                        )}
+
+                        <div className="mt-2">
+                           <button onClick={() => window.open(student.docLink, '_blank')} disabled={!student.docLink} className={`flex items-center gap-1 text-[10px] font-bold py-1 px-2 rounded transition-all border ${student.docLink ? 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100' : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed'}`}>
+                             <FileText size={12} /> {student.docLink ? 'View Docs' : 'No Docs'}
+                           </button>
+                        </div>
+                      </div>
+
                       {role === 'admin' && (
-                        <>
-                          <div className="hidden sm:flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => openEdit(student)} className="p-2 text-slate-400 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
-                            <button onClick={() => confirmDelete(student)} className="p-2 text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
-                          </div>
-                        </>
+                        <div className="hidden sm:flex flex-col absolute top-2 right-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
+                           <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-indigo-600 rounded transition-colors"><Edit2 size={14} /></button>
+                           <button onClick={() => confirmDelete(student)} className="p-1.5 text-slate-400 hover:text-red-600 rounded transition-colors"><Trash2 size={14} /></button>
+                        </div>
                       )}
                     </div>
-                    {student.isNewStudent && (
-                      <div className="absolute top-3 right-3 bg-red-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm animate-pulse z-10 flex items-center gap-1">
-                        <Sparkles size={10} /> NEW
-                      </div>
-                    )}
-                    <h3 className="font-bold text-lg text-slate-900 mb-2 leading-tight">{student.name}</h3>
-                    <div className="flex items-center gap-2 mb-6"><CreditCard size={16} className="text-slate-400" /><span className="font-bold text-lg text-slate-700 tracking-wide font-mono">{student.ic}</span></div>
-                    <div className="space-y-3">
-                      <div className="bg-indigo-50/50 p-3 rounded-xl flex justify-between items-center"><span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Current Year</span><span className="text-sm font-bold text-indigo-900">{year < 1 ? 'Pra-sekolah' : `Tahun ${year}`}</span></div>
-                      <div className="bg-slate-50 p-3 rounded-xl flex justify-between items-center">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Details</span>
-                        <div className="flex items-center gap-2"><span className="text-sm font-semibold text-slate-600">{student.gender}</span><div className={`w-1 h-1 rounded-full bg-slate-300`}></div><span className={`text-xs font-extrabold px-2.5 py-1 rounded-lg border ${student.mbkType === 'OKU' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{student.mbkType || 'MBK'}</span></div>
-                      </div>
-                    </div>
                     
-                    {/* Remarks Section */}
-                    {student.remarks && (
-                      <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
-                        <MessageSquare size={16} className="text-yellow-600 mt-0.5 flex-shrink-0" />
-                        <p className="text-xs text-slate-700 italic">{student.remarks}</p>
-                      </div>
-                    )}
-
-                    <div className="mt-6 pt-4 border-t border-slate-100 flex gap-2">
-                      <button onClick={() => window.open(student.docLink, '_blank')} disabled={!student.docLink} className={`flex-1 flex items-center justify-center gap-2 text-sm font-bold text-white py-2.5 rounded-xl transition-all shadow-sm active:scale-95 ${student.docLink ? 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-indigo-200' : 'bg-slate-300 cursor-not-allowed'}`} title={student.docLink ? 'Open Document' : 'No document linked'}>
-                        <FileText size={16} /> Documents
-                      </button>
-                    </div>
+                    {/* Mobile Admin Buttons */}
                     {role === 'admin' && (
-                        <div className="sm:hidden w-full mt-4 pt-4 border-t border-slate-50 flex justify-around">
-                           <button onClick={() => openEdit(student)} className="p-2 text-slate-400 bg-slate-100 rounded-lg"><Edit2 size={18} /></button>
-                           <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-slate-100 rounded-lg"><Trash2 size={18} /></button>
+                        <div className="sm:hidden absolute bottom-2 right-2 flex gap-1 bg-white/90 p-1 rounded-lg shadow-sm border border-slate-100">
+                           <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded hover:bg-slate-100"><Edit2 size={14} /></button>
+                           <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded hover:bg-red-100"><Trash2 size={14} /></button>
                         </div>
+                    )}
+                    
+                    {student.isNewStudent && (
+                      <div className="absolute top-2 left-3 sm:left-4 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
+                        <Sparkles size={8} /> NEW
+                      </div>
                     )}
                   </div>
                 )})}
@@ -1045,7 +1037,7 @@ export default function StudentDatabaseApp() {
                     Last updated: {lastUpdatedString}
                   </span>
                 )}
-                <button onClick={exportToExcel} className="flex items-center gap-2 text-sm text-slate-600 hover:text-purple-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-purple-200 hover:shadow-md transition-all"><Download size={18} /> Export CSV</button>
+                <button onClick={exportToExcel} className="flex items-center gap-2 text-sm text-slate-600 hover:text-purple-600 font-bold bg-white px-5 py-2.5 border border-slate-200 rounded-xl hover:border-purple-200 hover:shadow-md transition-all"><Download size={18} /> Export Excel</button>
               </div>
             </div>
             {loading ? (
@@ -1060,36 +1052,43 @@ export default function StudentDatabaseApp() {
                       <h3 className="font-extrabold text-purple-900 text-lg flex items-center gap-2"><Calendar className="text-purple-500" size={20} />{groupKey}</h3>
                       <span className="text-xs font-bold bg-white text-purple-700 px-3 py-1.5 rounded-lg border border-purple-100 shadow-sm">{groupedLulusStudents[groupKey].students.length} Students</span>
                     </div>
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                       {groupedLulusStudents[groupKey].students.map(student => (
-                        <div key={student.id} className="bg-white border border-slate-300 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
-                          <div className="flex items-center gap-4 mb-4">
+                        <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-300 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col">
+                          <div className="flex flex-row items-start p-3 gap-3 relative z-10">
+                            <div className="absolute top-0 left-0 w-full sm:w-1.5 h-1.5 sm:h-full bg-gradient-to-r sm:bg-gradient-to-b from-purple-400 to-purple-600"></div>
                             <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
-                            <div><h4 className="font-bold text-slate-900 text-base leading-tight mb-1">{student.name}</h4><span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{student.gender}</span></div>
+                            
+                            <div className="flex-1 min-w-0 text-left">
+                                <h3 className="font-bold text-sm text-slate-900 leading-tight mb-1 break-words">{student.name}</h3>
+                                <div className="text-xs font-medium text-slate-600 mb-0.5">{student.subject}</div>
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">{student.gender}</div>
+                                <div className="text-[10px] text-purple-600 font-semibold bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100 inline-block">Graduated: {student.graduationDate}</div>
+                            </div>
+
+                            {role === 'admin' && (
+                                <div className="hidden sm:flex flex-col absolute top-2 right-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
+                                    <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors"><Edit2 size={14} /></button>
+                                    <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 hover:bg-purple-50 rounded"><RotateCcw size={14} /></button>
+                                    <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
+                                </div>
+                            )}
                           </div>
-                          {student.isNewStudent && (
-                            <div className="absolute top-3 right-3 bg-red-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm animate-pulse z-10 flex items-center gap-1">
-                              <Sparkles size={10} /> NEW
+                          
+                          {/* Mobile Admin Buttons */}
+                           {role === 'admin' && (
+                                <div className="sm:hidden absolute bottom-2 right-2 flex gap-1 bg-white/90 p-1 rounded-lg shadow-sm border border-slate-100">
+                                   <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded hover:bg-slate-100"><Edit2 size={14} /></button>
+                                   <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 bg-purple-50 rounded hover:bg-purple-100"><RotateCcw size={14} /></button>
+                                   <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded hover:bg-red-100"><Trash2 size={14} /></button>
+                                </div>
+                            )}
+                            
+                           {student.isNewStudent && (
+                            <div className="absolute top-2 left-3 sm:left-4 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
+                              <span className="w-1.5 h-1.5 bg-white rounded-full"></span> NEW
                             </div>
                           )}
-                          {role === 'admin' && (
-                            <>
-                              <div className="hidden sm:flex absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
-                                <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-slate-400 hover:text-purple-600 transition-colors" title="Revert"><RotateCcw size={16} /></button>
-                                <button onClick={() => confirmDelete(student)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors" title="Delete"><Trash2 size={16} /></button>
-                                <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors" title="Edit"><Edit2 size={16} /></button>
-                              </div>
-                              <div className="sm:hidden w-full mt-4 pt-4 border-t border-slate-50 flex justify-around">
-                                <button onClick={() => toggleStudentStatus(student)} className="p-2 text-purple-500 bg-slate-100 rounded-lg"><RotateCcw size={18} /></button>
-                                <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-slate-100 rounded-lg"><Trash2 size={18} /></button>
-                                <button onClick={() => openEdit(student)} className="p-2 text-slate-400 bg-slate-100 rounded-lg"><Edit2 size={18} /></button>
-                              </div>
-                            </>
-                          )}
-                          <div className="mt-auto pt-4 border-t border-slate-50 flex flex-col gap-2">
-                             <div className="flex items-center justify-between text-xs"><span className="font-bold text-slate-400 uppercase tracking-wider">Subject</span><span className="font-semibold text-slate-700 text-right">{student.subject}</span></div>
-                             <div className="flex items-center justify-between text-xs"><span className="font-bold text-slate-400 uppercase tracking-wider">Graduated</span><span className="font-bold text-purple-700 bg-purple-50 px-2 py-1 rounded-md border border-purple-100">{student.graduationDate}</span></div>
-                          </div>
                         </div>
                       ))}
                     </div>
@@ -1125,37 +1124,42 @@ export default function StudentDatabaseApp() {
                       <h3 className="font-extrabold text-blue-900 text-lg flex items-center gap-2"><BookOpenCheck className="text-blue-500" size={20} />{groupKey}</h3>
                       <span className="text-xs font-bold bg-white text-blue-700 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm">{groupedPlanStudents[groupKey].length} Students</span>
                     </div>
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                        {groupedPlanStudents[groupKey].map(student => (
-                         <div key={student.id} className="bg-white border border-slate-100 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
-                           <div className="flex items-center gap-4 mb-4">
-                            <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
-                            <div><h4 className="font-bold text-slate-900 text-base leading-tight mb-1">{student.name}</h4><span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{student.gender}</span></div>
-                          </div>
-                          
-                          {student.isNewStudent && (
-                            <div className="absolute top-3 right-3 bg-red-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm animate-pulse z-10 flex items-center gap-1">
-                              <Sparkles size={10} /> NEW
+                         <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-100 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col">
+                           <div className="flex flex-row items-start p-3 gap-3 relative z-10">
+                             <div className="absolute top-0 left-0 w-full sm:w-1.5 h-1.5 sm:h-full bg-gradient-to-r sm:bg-gradient-to-b from-blue-400 to-blue-600"></div>
+                             <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+                             
+                             <div className="flex-1 min-w-0 text-left">
+                                <h3 className="font-bold text-sm text-slate-900 leading-tight mb-1 break-words">{student.name}</h3>
+                                <div className="text-xs font-medium text-slate-600 mb-0.5">{student.subject}</div>
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">{student.gender}</div>
+                             </div>
+
+                             {role === 'admin' && (
+                                <div className="hidden sm:flex flex-col absolute top-2 right-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
+                                   <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded transition-colors"><StickyNote size={14} /></button>
+                                   <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded transition-colors"><Trash2 size={14} /></button>
+                                   <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded transition-colors"><Edit2 size={14} /></button>
+                                </div>
+                             )}
+                           </div>
+
+                           {/* Mobile Admin Buttons */}
+                           {role === 'admin' && (
+                                <div className="sm:hidden absolute bottom-2 right-2 flex gap-1 bg-white/90 p-1 rounded-lg shadow-sm border border-slate-100">
+                                   <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 bg-amber-50 rounded hover:bg-amber-100"><StickyNote size={14} /></button>
+                                   <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded hover:bg-slate-100"><Edit2 size={14} /></button>
+                                   <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded hover:bg-red-100"><Trash2 size={14} /></button>
+                                </div>
+                            )}
+                            
+                           {student.isNewStudent && (
+                            <div className="absolute top-2 left-3 sm:left-4 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
+                              <span className="w-1.5 h-1.5 bg-white rounded-full"></span> NEW
                             </div>
                           )}
-
-                          {role === 'admin' && (
-                            <>
-                              <div className="hidden sm:flex absolute top-4 right-4 gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
-                                 <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded transition-colors"><StickyNote size={16} /></button>
-                                 <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded transition-colors"><Trash2 size={16} /></button>
-                                 <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded transition-colors"><Edit2 size={16} /></button>
-                              </div>
-                              <div className="sm:hidden w-full mt-4 pt-4 border-t border-slate-50 flex justify-around">
-                                 <button onClick={() => openNotesModal(student)} className="p-2 text-amber-500 bg-slate-100 rounded-lg"><StickyNote size={18} /></button>
-                                 <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-slate-100 rounded-lg"><Trash2 size={18} /></button>
-                                 <button onClick={() => openEdit(student)} className="p-2 text-slate-400 bg-slate-100 rounded-lg"><Edit2 size={18} /></button>
-                              </div>
-                            </>
-                          )}
-                          <div className="mt-auto pt-4 border-t border-slate-50 flex flex-col gap-2">
-                             <div className="flex items-center justify-between text-xs"><span className="font-bold text-slate-400 uppercase tracking-wider">Subject</span><span className="font-semibold text-slate-700 text-right">{student.subject}</span></div>
-                          </div>
                          </div>
                        ))}
                     </div>
@@ -1223,56 +1227,54 @@ export default function StudentDatabaseApp() {
                       {groupedProfileStudents[className].map(student => {
                         const studentStats = calculateStats(student.attendanceRecords || []);
                         return (
-                        <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-300 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col sm:flex-row lg:flex-col items-center p-3 gap-4">
-                          <div className={`absolute top-0 left-0 w-full sm:w-1.5 lg:w-full h-1.5 sm:h-full lg:h-1.5 ${studentStats.percent >= 75 ? 'bg-gradient-to-r sm:bg-gradient-to-b lg:bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-gradient-to-r sm:bg-gradient-to-b lg:bg-gradient-to-r from-amber-400 to-amber-600'}`}></div>
-                          
-                          <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-20 h-20" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
-                          
-                          <div className="flex-1 w-full text-center sm:text-left lg:text-center">
-                             <div className="flex items-center justify-center sm:justify-start lg:justify-center gap-2 mb-1">
-                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{className}</span>
-                             </div>
-                            <h3 className="font-bold text-sm text-slate-900 leading-tight mb-1 line-clamp-1">{student.name}</h3>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">{student.gender || 'Lelaki'}</p>
-                            
-                            <div className={`flex items-center justify-center text-[10px] font-bold text-white px-2 py-0.5 rounded-md uppercase tracking-wide mb-2 shadow-sm ${getSubjectBadgeColor(student.subject)}`}>{student.subject}</div>
+                        <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-300 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col">
+                          <div className="flex flex-row items-start p-3 gap-3 relative z-10">
+                              <div className={`absolute top-0 left-0 w-full sm:w-1.5 h-1.5 sm:h-full ${studentStats.percent >= 75 ? 'bg-gradient-to-r sm:bg-gradient-to-b from-emerald-400 to-emerald-600' : 'bg-gradient-to-r sm:bg-gradient-to-b from-amber-400 to-amber-600'}`}></div>
+                              
+                              <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+                              
+                              <div className="flex-1 min-w-0 text-left">
+                                <h3 className="font-bold text-sm text-slate-900 leading-tight mb-1 break-words">{student.name}</h3>
+                                <div className="text-xs font-medium text-slate-600 mb-0.5">{className}</div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">{student.gender || 'Lelaki'}</p>
+                                
+                                <div className={`inline-block items-center justify-center text-[10px] font-bold text-white px-2 py-0.5 rounded-md uppercase tracking-wide mb-2 shadow-sm ${getSubjectBadgeColor(student.subject)}`}>{student.subject}</div>
 
-                            <div className="flex flex-col gap-1 w-full">
-                               <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase">
-                                 <span>Attendance</span>
-                                 <span className={studentStats.percent >= 75 ? 'text-emerald-600' : 'text-amber-600'}>{studentStats.percent}%</span>
-                               </div>
-                               <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div className={`h-full rounded-full ${studentStats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${studentStats.percent}%` }}></div></div>
-                            </div>
-                            
-                            <div className="mt-2 text-[10px] text-slate-400 text-center sm:text-left lg:text-center font-medium">
-                              Updated: {student.updatedAt ? formatDate(student.updatedAt) : 'New'}
-                            </div>
+                                <div className="flex flex-col gap-1 w-full mt-1">
+                                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase">
+                                    <span>Attendance</span>
+                                    <span className={studentStats.percent >= 75 ? 'text-emerald-600' : 'text-amber-600'}>{studentStats.percent}%</span>
+                                  </div>
+                                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div className={`h-full rounded-full ${studentStats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${studentStats.percent}%` }}></div></div>
+                                </div>
+                              </div>
+
+                              {role === 'admin' && (
+                                <div className="hidden sm:flex flex-col absolute top-2 right-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
+                                    <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded"><StickyNote size={14} /></button>
+                                    <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Calendar size={14} /></button>
+                                    <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded"><Edit2 size={14} /></button>
+                                    <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 hover:bg-purple-50 rounded"><ArrowRight size={14} /></button>
+                                    <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
+                                </div>
+                              )}
                           </div>
+                          
+                           {/* Mobile Admin Buttons */}
+                           {role === 'admin' && (
+                                <div className="sm:hidden absolute bottom-2 right-2 flex gap-1 bg-white/90 p-1 rounded-lg shadow-sm border border-slate-100">
+                                   <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 bg-amber-50 rounded hover:bg-amber-100"><StickyNote size={14} /></button>
+                                   <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 bg-blue-50 rounded hover:bg-blue-100"><Calendar size={14} /></button>
+                                   <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded hover:bg-slate-100"><Edit2 size={14} /></button>
+                                   <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 bg-purple-50 rounded hover:bg-purple-100"><ArrowRight size={14} /></button>
+                                   <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded hover:bg-red-100"><Trash2 size={14} /></button>
+                                </div>
+                            )}
 
                           {student.isNewStudent && (
-                            <div className="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-10 flex items-center gap-0.5">
+                            <div className="absolute top-2 left-3 sm:left-4 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
                               <span className="w-1.5 h-1.5 bg-white rounded-full"></span> NEW
                             </div>
-                          )}
-
-                          {role === 'admin' && (
-                            <>
-                              <div className="hidden sm:flex flex-col absolute top-2 right-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
-                                <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded"><StickyNote size={14} /></button>
-                                <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Calendar size={14} /></button>
-                                <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded"><Edit2 size={14} /></button>
-                                <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 hover:bg-purple-50 rounded"><ArrowRight size={14} /></button>
-                                <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
-                              </div>
-                              <div className="sm:hidden w-full mt-2 pt-2 border-t border-slate-50 flex justify-around">
-                                <button onClick={() => openNotesModal(student)} className="p-2 text-amber-500 bg-slate-100 rounded-lg"><StickyNote size={18} /></button>
-                                <button onClick={() => openAttendanceModal(student)} className="p-2 text-blue-500 bg-slate-100 rounded-lg"><Calendar size={18} /></button>
-                                <button onClick={() => openEdit(student)} className="p-2 text-slate-400 bg-slate-100 rounded-lg"><Edit2 size={18} /></button>
-                                <button onClick={() => toggleStudentStatus(student)} className="p-2 text-purple-500 bg-slate-100 rounded-lg"><ArrowRight size={18} /></button>
-                                <button onClick={() => confirmDelete(student)} className="p-2 text-red-400 bg-slate-100 rounded-lg"><Trash2 size={18} /></button>
-                              </div>
-                            </>
                           )}
                         </div>
                       )})}
