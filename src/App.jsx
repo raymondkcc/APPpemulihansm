@@ -37,8 +37,7 @@ import {
   ZoomIn,
   ZoomOut,
   Sparkles,
-  Maximize2,
-  QrCode // Added Icon
+  Maximize2
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -81,8 +80,7 @@ const appId = 'my-school-database';
 
 // --- Components ---
 
-// Image Adjuster Component
-const ImageAdjuster = ({ imageSrc, onSave, onCancel, title = "Adjust Photo" }) => {
+const ImageAdjuster = ({ imageSrc, onSave, onCancel }) => {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -139,7 +137,7 @@ const ImageAdjuster = ({ imageSrc, onSave, onCancel, title = "Adjust Photo" }) =
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
         <div className="p-4 border-b border-slate-100 flex justify-between items-center">
-          <h3 className="font-bold text-lg text-slate-800">{title}</h3>
+          <h3 className="font-bold text-lg text-slate-800">Adjust Photo</h3>
           <button onClick={onCancel} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
         </div>
         <div className="p-6 flex flex-col items-center gap-4">
@@ -163,7 +161,7 @@ const ImageAdjuster = ({ imageSrc, onSave, onCancel, title = "Adjust Photo" }) =
         </div>
         <div className="p-4 border-t border-slate-100 flex gap-3">
           <button onClick={onCancel} className="flex-1 py-2.5 font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200">Cancel</button>
-          <button onClick={handleSave} className="flex-1 py-2.5 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-md shadow-indigo-200">Save</button>
+          <button onClick={handleSave} className="flex-1 py-2.5 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-md shadow-indigo-200">Save Photo</button>
         </div>
         <canvas ref={canvasRef} className="hidden"></canvas>
       </div>
@@ -171,7 +169,6 @@ const ImageAdjuster = ({ imageSrc, onSave, onCancel, title = "Adjust Photo" }) =
   );
 };
 
-// Full Screen Image Viewer
 const ImageViewer = ({ src, onClose }) => {
   if (!src) return null;
   return (
@@ -197,29 +194,14 @@ const ImageViewer = ({ src, onClose }) => {
 
 const Avatar = ({ name, color, photoUrl, size = "w-12 h-12", onClick }) => {
   const commonClasses = `${size} rounded-xl shadow-sm border-2 border-white ring-1 ring-gray-100 flex-shrink-0 ${onClick ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`;
-  
   if (photoUrl) {
     return (
-      <img 
-        src={photoUrl} 
-        alt={name} 
-        className={`${commonClasses} object-cover object-top bg-white`}
-        onClick={onClick}
-      />
+      <img src={photoUrl} alt={name} className={`${commonClasses} object-cover object-top bg-white`} onClick={onClick} />
     );
   }
-
-  const initials = name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .substring(0, 2)
-    .toUpperCase();
-  
+  const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   return (
-    <div className={`${commonClasses} flex items-center justify-center text-white font-bold shadow-sm ${color}`}>
-      {initials}
-    </div>
+    <div className={`${commonClasses} flex items-center justify-center text-white font-bold shadow-sm ${color}`}>{initials}</div>
   );
 };
 
@@ -230,16 +212,9 @@ const Modal = ({ isOpen, onClose, title, children }) => {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 fade-in">
         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
           <h3 className="font-bold text-lg text-slate-800 tracking-tight">{title}</h3>
-          <button 
-            onClick={onClose} 
-            className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 rounded-full transition-colors"
-          >
-            <XCircle size={24} />
-          </button>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 rounded-full transition-colors"><XCircle size={24} /></button>
         </div>
-        <div className="p-6">
-          {children}
-        </div>
+        <div className="p-6">{children}</div>
       </div>
     </div>
   );
@@ -373,7 +348,7 @@ export default function StudentDatabaseApp() {
 
   const [rawImageSrc, setRawImageSrc] = useState(null);
   const [fullScreenImage, setFullScreenImage] = useState(null); 
-  const [uploadType, setUploadType] = useState('profile'); // 'profile' or 'qr'
+  const [uploadType, setUploadType] = useState('profile');
 
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, studentId: null, studentName: '' });
   const [moveConfirmation, setMoveConfirmation] = useState({ isOpen: false, student: null, newStatus: '' });
@@ -416,7 +391,6 @@ export default function StudentDatabaseApp() {
     return () => unsubscribe();
   }, [user]);
 
-  // --- Logic ---
   const subjects = ['Pemulihan BM', 'Pemulihan Matematik', 'Pemulihan BM dan Matematik'];
   const colors = ['bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-orange-500', 'bg-pink-500', 'bg-indigo-500'];
 
@@ -531,7 +505,7 @@ export default function StudentDatabaseApp() {
         dataToSave.mbkType = formData.mbkType; 
         dataToSave.remarks = formData.remarks || ''; 
         dataToSave.docLink = formData.docLink || ''; 
-        dataToSave.qrCodeUrl = formData.qrCodeUrl || ''; // Save QR Code
+        dataToSave.qrCodeUrl = formData.qrCodeUrl || '';
         dataToSave.className = ''; 
         dataToSave.subject = '';
       }
@@ -546,6 +520,63 @@ export default function StudentDatabaseApp() {
       }
       setIsModalOpen(false); resetForm();
     } catch (err) { console.error("Error saving:", err); }
+  };
+
+  const exportToExcel = () => {
+    if (!students || students.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+
+    const workbook = XLSX.utils.book_new();
+
+    const formatStudent = (s) => ({
+      Name: s.name,
+      Gender: s.gender,
+      IC: s.ic || '',
+      Class: s.className || '',
+      Subject: s.subject || '',
+      Program: s.program === 'mbk' ? (s.mbkType || 'MBK') : 'Pemulihan',
+      Status: s.status,
+      Remarks: s.remarks || '',
+      DocLink: s.docLink || '',
+      LastUpdated: s.updatedAt ? new Date(s.updatedAt.toDate ? s.updatedAt.toDate() : s.updatedAt).toLocaleDateString() : ''
+    });
+
+    const profileData = students.filter(s => {
+       const year = getStudentCurrentYear(s);
+       return s.program === 'pemulihan' && s.status !== 'Lulus' && year <= 3;
+    }).map(formatStudent);
+    if(profileData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(profileData);
+      XLSX.utils.book_append_sheet(workbook, ws, "Profile (1-3)");
+    }
+
+    const planData = students.filter(s => {
+       const year = getStudentCurrentYear(s);
+       return s.program === 'pemulihan' && s.status !== 'Lulus' && year >= 4 && year <= 6;
+    }).map(formatStudent);
+    if(planData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(planData);
+      XLSX.utils.book_append_sheet(workbook, ws, "PLaN (4-6)");
+    }
+
+    const mbkData = students.filter(s => s.program === 'mbk').map(formatStudent);
+    if(mbkData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(mbkData);
+      XLSX.utils.book_append_sheet(workbook, ws, "MBK");
+    }
+
+    const lulusData = students.filter(s => s.status === 'Lulus').map(s => ({
+      ...formatStudent(s),
+      GraduationDate: s.graduationDate || ''
+    }));
+    if(lulusData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(lulusData);
+      XLSX.utils.book_append_sheet(workbook, ws, "Lulus");
+    }
+
+    XLSX.writeFile(workbook, "Student_Database.xlsx");
   };
 
   const confirmDelete = (student) => {
@@ -670,25 +701,6 @@ export default function StudentDatabaseApp() {
     setFormData({ name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false, qrCodeUrl: '' });
   };
 
-  const exportToCSV = () => {
-    const headers = ["ID,Name,Program,IC,Gender,MBK_Type,Class,Subject,Status,GraduationDate,Remarks,DocLink"];
-    const rows = filteredStudents.map(s => {
-      const safeRemarks = s.remarks ? `"${s.remarks.replace(/"/g, '""')}"` : '';
-      const safeLink = s.docLink ? `"${s.docLink}"` : '';
-      return `${s.id},"${s.name}","${s.program || 'pemulihan'}",${s.ic || ''},${s.gender || 'Lelaki'},${s.mbkType || ''},"${s.className || ''}",${s.subject || ''},${s.status || 'Active'},${s.graduationDate || ''},${safeRemarks},${safeLink}`;
-    });
-    const csvContent = "data:text/csv;charset=utf-8," + headers.concat(rows).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `students_export.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // --- Filtering & Derived State ---
-  
   const availableYears = useMemo(() => {
     const pemulihanStudents = students.filter(s => (!s.program || s.program === 'pemulihan'));
     const years = new Set(pemulihanStudents.map(s => getYearFromClassString(s.className)));
@@ -770,10 +782,6 @@ export default function StudentDatabaseApp() {
       if (currentSection === 'stats') {
         if (program === 'mbk') return false;
         if (s.status === 'Lulus') return false;
-        // EXCLUDE PLaN (YEAR 4+) FROM STATS
-        const studentYearCalc = getStudentCurrentYear(s);
-        if (studentYearCalc > 3) return false;
-
         const studentYear = getYearFromClassString(s.className);
         const filterYear = parseInt(statsFilters.year);
         const matchYear = statsFilters.year === 'All' || (studentYear !== null && studentYear === filterYear);
@@ -799,10 +807,8 @@ export default function StudentDatabaseApp() {
     return calculateLastUpdated(list);
   }, [currentSection, groupedProfileStudents, groupedPlanStudents, groupedLulusStudents, filteredStudents]);
 
-  // --- Render ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 text-slate-800 font-sans selection:bg-indigo-100 pb-24">
-      {/* Navbar */}
       <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
@@ -842,7 +848,6 @@ export default function StudentDatabaseApp() {
           </div>
         </div>
 
-        {/* STATS VIEW */}
         {currentSection === 'stats' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
@@ -987,7 +992,7 @@ export default function StudentDatabaseApp() {
                         )}
 
                         <div className="mt-2 flex flex-col sm:flex-row gap-1 sm:justify-center">
-                           <button onClick={() => window.open(student.docLink, '_blank')} disabled={!student.docLink} className={`flex-1 flex items-center justify-center gap-1 text-[10px] font-bold py-1 px-2 rounded transition-all border ${student.docLink ? 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100' : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed'}`}>
+                           <button onClick={() => window.open(student.docLink, '_blank')} disabled={!student.docLink} className={`flex-1 flex items-center justify-center gap-1 text-[10px] font-bold py-1 px-2 rounded transition-all border ${student.docLink ? 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100' : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed'}`} title={student.docLink ? 'Open Document' : 'No document linked'}>
                              <FileText size={12} /> {student.docLink ? 'Docs' : 'No Docs'}
                            </button>
                            {student.qrCodeUrl && (
@@ -1046,7 +1051,7 @@ export default function StudentDatabaseApp() {
                     </div>
                     <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {groupedLulusStudents[groupKey].students.map(student => (
-                        <div key={student.id} className="bg-white border border-slate-300 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
+                        <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-300 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col">
                           <div className="flex flex-row sm:flex-col items-start sm:items-center p-3 sm:p-6 gap-3 sm:gap-4 relative z-10">
                             <div className="absolute left-0 top-0 bottom-0 w-1.5 sm:w-full sm:h-1.5 sm:bottom-auto bg-gradient-to-b sm:bg-gradient-to-r from-purple-400 to-purple-600"></div>
                             
@@ -1120,7 +1125,7 @@ export default function StudentDatabaseApp() {
                     </div>
                     <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                        {groupedPlanStudents[groupKey].map(student => (
-                         <div key={student.id} className="bg-white border border-slate-100 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
+                         <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-100 transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
                            <div className="flex flex-row sm:flex-col items-start sm:items-center p-3 sm:p-6 gap-3 sm:gap-4 relative z-10">
                              <div className="absolute left-0 top-0 bottom-0 w-1.5 sm:w-full sm:h-1.5 sm:bottom-auto bg-gradient-to-b sm:bg-gradient-to-r from-blue-400 to-blue-600"></div>
                              
@@ -1259,90 +1264,4 @@ export default function StudentDatabaseApp() {
                                 <div className="hidden sm:flex flex-col absolute top-2 right-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
                                     <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded"><StickyNote size={14} /></button>
                                     <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Calendar size={14} /></button>
-                                    <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded"><Edit2 size={14} /></button>
-                                    <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 hover:bg-purple-50 rounded"><ArrowRight size={14} /></button>
-                                    <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
-                                </div>
-                              )}
-                          </div>
-
-                          {student.isNewStudent && (
-                            <div className="absolute top-2 left-3 sm:top-2 sm:left-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
-                              <span className="w-1.5 h-1.5 bg-white rounded-full"></span> NEW
-                            </div>
-                          )}
-                        </div>
-                      )})}
-                    </div>
-                  </div>
-                )})}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Image Adjuster Modal (Rendered at root level) */}
-        {rawImageSrc && (
-          <ImageAdjuster 
-            imageSrc={rawImageSrc}
-            onSave={handleCropSave}
-            onCancel={handleCropCancel}
-          />
-        )}
-
-        {/* Full Screen Image Viewer (Rendered at root level) */}
-        {fullScreenImage && (
-          <ImageViewer 
-            src={fullScreenImage}
-            onClose={() => setFullScreenImage(null)}
-          />
-        )}
-      </main>
-
-      {/* Fixed Bottom Navigation (Mobile Only) */}
-      <div className="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around items-center z-50 sm:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-         {[
-            { id: 'profile', label: 'Profile', icon: School },
-            { id: 'plan', label: 'PLaN', icon: BookOpenCheck },
-            { id: 'mbk', label: 'MBK', icon: Accessibility },
-            { id: 'lulus', label: 'Lulus', icon: GraduationCap },
-            { id: 'stats', label: 'Stats', icon: BarChart3 }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              className={`flex flex-col items-center justify-center w-full py-3 transition-all duration-200 ${
-                currentSection === tab.id
-                  ? 'text-indigo-600 bg-indigo-50/50'
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              <tab.icon size={20} strokeWidth={currentSection === tab.id ? 2.5 : 2} />
-              <span className="text-[10px] font-bold mt-1">{tab.label}</span>
-            </button>
-          ))}
-      </div>
-      
-      {/* Modals */}
-      <Modal isOpen={showAdminLogin} onClose={() => { setShowAdminLogin(false); setAdminPassword(''); setLoginError(''); }} title="Admin Login">
-            <form onSubmit={handleAdminLogin} className="space-y-4">
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Password</label><input type="password" className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`} value={adminPassword} onChange={(e) => { setAdminPassword(e.target.value); setLoginError(''); }} placeholder="Enter password..." autoFocus />{loginError && <p className="text-xs text-red-500 mt-1">{loginError}</p>}</div>
-                <button type="submit" className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm">Authenticate</button>
-            </form>
-        </Modal>
-        <Modal isOpen={deleteConfirmation.isOpen} onClose={() => setDeleteConfirmation({ isOpen: false, studentId: null, studentName: '' })} title="Confirm Deletion">
-           <div className="flex flex-col items-center justify-center mb-6 text-center"><div className="bg-red-50 p-4 rounded-full mb-4"><Trash2 className="text-red-600 w-10 h-10" /></div><h4 className="text-lg font-bold text-gray-900 mb-2">Delete Record?</h4><p className="text-gray-500">Are you sure you want to delete <span className="font-semibold text-gray-900">{deleteConfirmation.studentName}</span>? This action cannot be undone.</p></div>
-           <div className="flex gap-3"><button onClick={() => setDeleteConfirmation({ isOpen: false, studentId: null, studentName: '' })} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button><button onClick={executeDelete} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 shadow-sm">Yes, Delete</button></div>
-        </Modal>
-        <Modal isOpen={moveConfirmation.isOpen} onClose={() => setMoveConfirmation({ isOpen: false, student: null, newStatus: '' })} title="Confirm Status Change">
-            <div className="flex flex-col items-center justify-center mb-6 text-center"><div className="bg-blue-50 p-4 rounded-full mb-4"><ArrowLeftRight className="text-blue-600 w-10 h-10" /></div><h4 className="text-lg font-bold text-gray-900 mb-2">Move Student?</h4><p className="text-gray-500 mb-4">{moveConfirmation.newStatus === 'Lulus' ? `Mark ${moveConfirmation.student?.name} as "Lulus Pemulihan"?` : `Move ${moveConfirmation.student?.name} back to "Profile Murid Pemulihan"?`}</p>{moveConfirmation.newStatus === 'Lulus' && (<div className="w-full text-left bg-gray-50 p-3 rounded-lg border border-gray-200"><label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Graduation Date</label><div className="flex items-center gap-2"><Calendar size={16} className="text-gray-400" /><input type="date" className="bg-transparent border-none focus:ring-0 text-sm font-medium text-gray-900 w-full p-0" value={moveDate} onChange={(e) => setMoveDate(e.target.value)} /></div></div>)}</div>
-            <div className="flex gap-3"><button onClick={() => setMoveConfirmation({ isOpen: false, student: null, newStatus: '' })} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button><button onClick={executeMove} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm">Confirm</button></div>
-        </Modal>
-        <Modal isOpen={isNotesModalOpen} onClose={() => setIsNotesModalOpen(false)} title="Catatan Murid">
-            <div className="space-y-6"><div className="flex items-center gap-4 p-4 bg-amber-50 rounded-lg"><Avatar name={selectedStudentForNotes?.name || ''} color={selectedStudentForNotes?.color || 'bg-blue-500'} photoUrl={selectedStudentForNotes?.photoUrl}/><div><h4 className="font-bold text-gray-900">{selectedStudentForNotes?.name}</h4><p className="text-sm text-gray-500">{selectedStudentForNotes?.className}</p></div></div><form onSubmit={saveNote} className="space-y-3"><div><label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Date</label><input type="date" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" value={noteForm.date} onChange={(e) => setNoteForm({...noteForm, date: e.target.value})}/></div><div><label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Catatan (Note)</label><textarea required rows="3" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" value={noteForm.text} onChange={(e) => setNoteForm({...noteForm, text: e.target.value})} placeholder="Enter note details here..."></textarea></div><button type="submit" className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium shadow-sm transition-colors">{noteForm.id ? 'Update Note' : 'Add Note'}</button></form><div className="border-t border-gray-100 pt-4"><h5 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2"><Clock size={16} /> History</h5><div className="space-y-3 max-h-60 overflow-y-auto">{selectedStudentForNotes?.notes && selectedStudentForNotes.notes.length > 0 ? ([...selectedStudentForNotes.notes].sort((a, b) => new Date(b.date) - new Date(a.date)).map((note) => (<div key={note.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200 relative group"><div className="flex justify-between items-start mb-1"><span className="text-xs font-bold text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200">{note.date}</span><div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => startEditNote(note)} className="text-blue-600 hover:text-blue-800"><Edit2 size={14} /></button><button onClick={() => deleteNote(note.id)} className="text-red-600 hover:text-red-800"><Trash2 size={14} /></button></div></div><p className="text-sm text-gray-800 whitespace-pre-wrap">{note.text}</p></div>))) : (<p className="text-center text-sm text-gray-400 py-4">No notes recorded yet.</p>)}</div></div></div>
-        </Modal>
-        <Modal isOpen={isAttendanceModalOpen} onClose={() => setIsAttendanceModalOpen(false)} title="Manage Attendance">
-            <div className="space-y-6"><div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg"><Avatar name={selectedStudentForAttendance?.name || ''} color={selectedStudentForAttendance?.color || 'bg-blue-500'} photoUrl={selectedStudentForAttendance?.photoUrl}/><div><h4 className="font-bold text-gray-900">{selectedStudentForAttendance?.name}</h4><p className="text-sm text-gray-500">{selectedStudentForAttendance?.className}</p></div></div><div><label className="block text-sm font-medium text-gray-700 mb-2">Mark for specific date</label><div className="flex gap-2"><input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/><button onClick={() => markAttendance('present')} className="flex items-center gap-1 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 font-medium"><Check size={16} /> Present</button><button onClick={() => markAttendance('absent')} className="flex items-center gap-1 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium"><X size={16} /> Absent</button></div></div><div><h5 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><Clock size={14} /> Record History</h5><div className="max-h-48 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-100">{selectedStudentForAttendance?.attendanceRecords?.length > 0 ? ([...selectedStudentForAttendance.attendanceRecords].sort((a, b) => new Date(b.date) - new Date(a.date)).map((record, idx) => (<div key={idx} className="flex justify-between items-center p-3 hover:bg-gray-50"><div className="text-sm"><span className="font-medium text-gray-700">{record.date}</span></div><div className="flex items-center gap-3"><span className={`text-xs font-bold px-2 py-1 rounded uppercase ${record.status === 'present' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{record.status}</span><button onClick={() => deleteAttendanceRecord(record)} className="text-gray-400 hover:text-red-500" title="Delete entry"><Trash2 size={14} /></button></div></div>))) : (<div className="p-4 text-center text-sm text-gray-400">No records found.</div>)}</div></div></div>
-        </Modal>
-        <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Student" : "Add New Student"}>
-            <form onSubmit={handleSave} className="space-y-4">{!editingId && (<div className="flex p-1 bg-gray-100 rounded-lg mb-4"><button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'pemulihan' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => setFormData(prev => ({ ...prev, program: 'pemulihan' }))}>Profile Pemulihan</button><button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'mbk' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => setFormData(prev => ({ ...prev, program: 'mbk' }))}>Murid MBK & OKU</button></div>)}<div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 hover:border-blue-400 transition-colors"><div className="mb-3"><Avatar name={formData.name || 'User'} color="bg-gray-300" photoUrl={formData.photoUrl} size="w-20 h-20"/></div><label className="cursor-pointer"><span className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"><Camera size={16} /> {formData.photoUrl ? 'Change Photo' : 'Upload Photo'}</span><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label><div className="flex items-center gap-3 mt-2">{formData.photoUrl && (<><button type="button" onClick={() => setRawImageSrc(formData.photoUrl)} className="text-indigo-600 text-xs hover:underline flex items-center font-medium transition-colors"><Edit2 size={12} className="mr-1" />Adjust</button><span className="text-gray-300">|</span><button type="button" onClick={handleRemovePhoto} className="text-red-500 text-xs hover:underline flex items-center font-medium transition-colors"><Trash2 size={12} className="mr-1" />Remove</button></>)}</div><p className="text-xs text-gray-400 mt-1">Max size 5MB</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Jane Doe"/></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Jantina (Gender)</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Lelaki" checked={formData.gender === 'Lelaki'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-blue-600 focus:ring-blue-500"/><span className="text-sm text-gray-700">Lelaki</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Perempuan" checked={formData.gender === 'Perempuan'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-blue-600 focus:ring-blue-500"/><span className="text-sm text-gray-700">Perempuan</span></label></div></div>{formData.program === 'pemulihan' ? (<><div><label className="block text-sm font-medium text-gray-700 mb-1">IC Number (Optional but Recommended)</label><input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm" value={formData.ic} onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })} placeholder="For Auto-Year Calculation (e.g. 16...)" maxLength={12}/></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Class Name</label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm" value={formData.className} onChange={handleClassNameChange} placeholder="e.g. 2 He"/><p className="text-xs text-gray-400 mt-1">Format: Year ClassName (e.g. 2 He)</p></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Subject</label><select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })}>{subjects.map(s => <option key={s} value={s}>{s}</option>)}</select></div><div className="flex items-center gap-2 mt-2"><input type="checkbox" id="isNewStudent" checked={formData.isNewStudent || false} onChange={(e) => setFormData({ ...formData, isNewStudent: e.target.checked })} className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"/><label htmlFor="isNewStudent" className="text-sm font-medium text-gray-700">Murid Baru (插班生)</label></div></>) : (<><div><label className="block text-sm font-medium text-gray-700 mb-1">Kategori (Category)</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbkType" value="MBK" checked={formData.mbkType === 'MBK'} onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })} className="text-amber-600 focus:ring-amber-500"/><span className="text-sm text-gray-700">MBK (Tiada Kad)</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbk
+                                    <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover
