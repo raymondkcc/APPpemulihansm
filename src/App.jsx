@@ -37,7 +37,8 @@ import {
   ZoomIn,
   ZoomOut,
   Sparkles,
-  Maximize2
+  Maximize2,
+  QrCode
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -80,7 +81,8 @@ const appId = 'my-school-database';
 
 // --- Components ---
 
-const ImageAdjuster = ({ imageSrc, onSave, onCancel }) => {
+// Image Adjuster Component
+const ImageAdjuster = ({ imageSrc, onSave, onCancel, title = "Adjust Photo" }) => {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -137,7 +139,7 @@ const ImageAdjuster = ({ imageSrc, onSave, onCancel }) => {
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
         <div className="p-4 border-b border-slate-100 flex justify-between items-center">
-          <h3 className="font-bold text-lg text-slate-800">Adjust Photo</h3>
+          <h3 className="font-bold text-lg text-slate-800">{title}</h3>
           <button onClick={onCancel} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
         </div>
         <div className="p-6 flex flex-col items-center gap-4">
@@ -161,7 +163,7 @@ const ImageAdjuster = ({ imageSrc, onSave, onCancel }) => {
         </div>
         <div className="p-4 border-t border-slate-100 flex gap-3">
           <button onClick={onCancel} className="flex-1 py-2.5 font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200">Cancel</button>
-          <button onClick={handleSave} className="flex-1 py-2.5 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-md shadow-indigo-200">Save Photo</button>
+          <button onClick={handleSave} className="flex-1 py-2.5 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-md shadow-indigo-200">Save</button>
         </div>
         <canvas ref={canvasRef} className="hidden"></canvas>
       </div>
@@ -169,6 +171,7 @@ const ImageAdjuster = ({ imageSrc, onSave, onCancel }) => {
   );
 };
 
+// Full Screen Image Viewer
 const ImageViewer = ({ src, onClose }) => {
   if (!src) return null;
   return (
@@ -194,14 +197,29 @@ const ImageViewer = ({ src, onClose }) => {
 
 const Avatar = ({ name, color, photoUrl, size = "w-12 h-12", onClick }) => {
   const commonClasses = `${size} rounded-xl shadow-sm border-2 border-white ring-1 ring-gray-100 flex-shrink-0 ${onClick ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`;
+  
   if (photoUrl) {
     return (
-      <img src={photoUrl} alt={name} className={`${commonClasses} object-cover object-top bg-white`} onClick={onClick} />
+      <img 
+        src={photoUrl} 
+        alt={name} 
+        className={`${commonClasses} object-cover object-top bg-white`}
+        onClick={onClick}
+      />
     );
   }
-  const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+  const initials = name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .substring(0, 2)
+    .toUpperCase();
+  
   return (
-    <div className={`${commonClasses} flex items-center justify-center text-white font-bold shadow-sm ${color}`}>{initials}</div>
+    <div className={`${commonClasses} flex items-center justify-center text-white font-bold shadow-sm ${color}`}>
+      {initials}
+    </div>
   );
 };
 
@@ -212,9 +230,16 @@ const Modal = ({ isOpen, onClose, title, children }) => {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 fade-in">
         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
           <h3 className="font-bold text-lg text-slate-800 tracking-tight">{title}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 rounded-full transition-colors"><XCircle size={24} /></button>
+          <button 
+            onClick={onClose} 
+            className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 rounded-full transition-colors"
+          >
+            <XCircle size={24} />
+          </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="p-6">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -224,13 +249,18 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 
 const calculateSchoolYearFromIC = (ic) => {
   if (!ic) return null;
-  const icStr = String(ic);
+  const icStr = String(ic).replace(/\D/g, ''); // Remove non-digits
   if (icStr.length < 2) return null;
+  
   const yearPrefix = parseInt(icStr.substring(0, 2));
   if (isNaN(yearPrefix)) return null;
+
+  // Assumption: 2000+ for yearPrefix 00-99. 
+  // Adjust if needed for students born in 1999 (rare for this school context)
   const birthYear = 2000 + yearPrefix; 
   const currentYear = new Date().getFullYear();
   const age = currentYear - birthYear;
+  // Standard Malaysia: Age 7 = Year 1
   return age - 6;
 };
 
@@ -242,20 +272,25 @@ const getYearFromClassString = (className) => {
   return isNaN(yearInt) ? null : yearInt;
 };
 
+// Master function: Prefer IC calc, fallback to Class Name
 const getStudentCurrentYear = (student) => {
   const icYear = calculateSchoolYearFromIC(student.ic);
-  if (icYear !== null) return icYear;
+  if (icYear !== null && icYear > 0) return icYear;
+  
   const classYear = getYearFromClassString(student.className);
   if (classYear !== null) return classYear;
-  return 0; 
+  
+  return 0; // Unknown
 };
 
 const calculateCurrentLulusYear = (className, graduationDate) => {
   const originalYear = getYearFromClassString(className);
   if (originalYear === null) return 99; 
+
   const gradDate = graduationDate ? new Date(graduationDate) : new Date();
   const gradYear = gradDate.getFullYear();
   const currentYear = new Date().getFullYear();
+  
   const yearDiff = currentYear - gradYear;
   return originalYear + yearDiff;
 };
@@ -272,6 +307,7 @@ const getClassColorStyle = (className) => {
     { bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-900', icon: 'text-indigo-600' },
     { bg: 'bg-lime-50', border: 'border-lime-200', text: 'text-lime-900', icon: 'text-lime-600' },
   ];
+  
   let hash = 0;
   for (let i = 0; i < safeClassName.length; i++) {
     hash = safeClassName.charCodeAt(i) + ((hash << 5) - hash);
@@ -291,6 +327,7 @@ const getSubjectBadgeColor = (subject) => {
 
 const calculateLastUpdated = (studentList) => {
   if (!studentList || studentList.length === 0) return null;
+  
   let maxDate = 0;
   studentList.forEach(student => {
     if (student.updatedAt) {
@@ -304,12 +341,18 @@ const calculateLastUpdated = (studentList) => {
       } catch (e) {
         timestamp = 0;
       }
+      
       if (!isNaN(timestamp) && timestamp > maxDate) maxDate = timestamp;
     }
   });
+  
   if (maxDate === 0) return null;
+  
   const date = new Date(maxDate);
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleDateString('en-GB', { 
+    day: 'numeric', month: 'short', year: 'numeric', 
+    hour: '2-digit', minute: '2-digit' 
+  });
 };
 
 const formatDate = (timestamp) => {
@@ -391,6 +434,7 @@ export default function StudentDatabaseApp() {
     return () => unsubscribe();
   }, [user]);
 
+  // --- Logic ---
   const subjects = ['Pemulihan BM', 'Pemulihan Matematik', 'Pemulihan BM dan Matematik'];
   const colors = ['bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-orange-500', 'bg-pink-500', 'bg-indigo-500'];
 
@@ -701,6 +745,8 @@ export default function StudentDatabaseApp() {
     setFormData({ name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false, qrCodeUrl: '' });
   };
 
+  // --- Filtering & Derived State ---
+  
   const availableYears = useMemo(() => {
     const pemulihanStudents = students.filter(s => (!s.program || s.program === 'pemulihan'));
     const years = new Set(pemulihanStudents.map(s => getYearFromClassString(s.className)));
@@ -782,6 +828,10 @@ export default function StudentDatabaseApp() {
       if (currentSection === 'stats') {
         if (program === 'mbk') return false;
         if (s.status === 'Lulus') return false;
+        // EXCLUDE PLaN (YEAR 4+) FROM STATS
+        const studentYearCalc = getStudentCurrentYear(s);
+        if (studentYearCalc > 3) return false;
+
         const studentYear = getYearFromClassString(s.className);
         const filterYear = parseInt(statsFilters.year);
         const matchYear = statsFilters.year === 'All' || (studentYear !== null && studentYear === filterYear);
@@ -809,6 +859,7 @@ export default function StudentDatabaseApp() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 text-slate-800 font-sans selection:bg-indigo-100 pb-24">
+      {/* Navbar - same */}
       <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
@@ -820,7 +871,6 @@ export default function StudentDatabaseApp() {
                 Profile Murid <span className="text-indigo-600">Digital</span>
               </span>
             </div>
-            
             <div className="flex items-center gap-3">
               <div className="bg-slate-100/80 backdrop-blur-sm rounded-full p-1 flex items-center text-xs font-bold shadow-inner">
                 <button onClick={() => handleRoleSwitch('admin')} className={`px-4 py-1.5 rounded-full transition-all duration-300 flex items-center gap-1.5 ${role === 'admin' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>
@@ -848,13 +898,16 @@ export default function StudentDatabaseApp() {
           </div>
         </div>
 
+        {/* STATS VIEW */}
         {currentSection === 'stats' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* ... stats content ... */}
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Filter size={20} className="text-indigo-500" /> Find Database
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* ... filters ... */}
                 <div className="relative">
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Year (Tahun)</label>
                   <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 font-medium appearance-none" value={statsFilters.year} onChange={(e) => setStatsFilters(prev => ({...prev, year: e.target.value}))}>
@@ -929,6 +982,7 @@ export default function StudentDatabaseApp() {
 
         {currentSection === 'mbk' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             {/* ... MBK View ... */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
               <h2 className="text-2xl font-extrabold text-indigo-900 tracking-tight">Senarai Murid MBK</h2>
               <div className="flex gap-3 w-full md:w-auto items-center">
@@ -960,7 +1014,7 @@ export default function StudentDatabaseApp() {
                 {filteredStudents.map(student => {
                   const year = calculateSchoolYearFromIC(student.ic);
                   return (
-                  <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-200 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col">
+                  <div key={student.id} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl border border-slate-100 transition-all duration-300 hover:-translate-y-1 relative group overflow-hidden flex flex-col">
                     <div className="flex flex-row sm:flex-col items-start sm:items-center p-3 sm:p-6 gap-3 sm:gap-4 relative z-10">
                       <div className="absolute left-0 top-0 bottom-0 w-1.5 sm:w-full sm:h-1.5 sm:bottom-auto bg-gradient-to-b sm:bg-gradient-to-r from-indigo-500 to-purple-500"></div>
                       <div className="flex flex-col items-center gap-2">
@@ -992,11 +1046,11 @@ export default function StudentDatabaseApp() {
                         )}
 
                         <div className="mt-2 flex flex-col sm:flex-row gap-1 sm:justify-center">
-                           <button onClick={() => window.open(student.docLink, '_blank')} disabled={!student.docLink} className={`flex-1 flex items-center justify-center gap-1 text-[10px] font-bold py-1 px-2 rounded transition-all border ${student.docLink ? 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100' : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed'}`} title={student.docLink ? 'Open Document' : 'No document linked'}>
+                           <button onClick={() => window.open(student.docLink, '_blank')} disabled={!student.docLink} className={`flex items-center gap-1 text-[10px] font-bold py-1 px-2 rounded transition-all border ${student.docLink ? 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100' : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed'}`} title={student.docLink ? 'Open Document' : 'No document linked'}>
                              <FileText size={12} /> {student.docLink ? 'Docs' : 'No Docs'}
                            </button>
                            {student.qrCodeUrl && (
-                             <button onClick={() => setFullScreenImage(student.qrCodeUrl)} className="flex-1 flex items-center justify-center gap-1 text-[10px] font-bold py-1 px-2 rounded transition-all border bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100">
+                             <button onClick={() => setFullScreenImage(student.qrCodeUrl)} className="flex items-center gap-1 text-[10px] font-bold py-1 px-2 rounded transition-all border bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100">
                                <QrCode size={12} /> QR
                              </button>
                            )}
@@ -1026,6 +1080,7 @@ export default function StudentDatabaseApp() {
         {/* LULUS VIEW */}
         {currentSection === 'lulus' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             {/* ... (Lulus View) ... */}
              <div className="flex justify-between items-center mb-8">
               <h2 className="text-2xl font-extrabold text-purple-900 tracking-tight">Graduates (Lulus)</h2>
               <div className="flex gap-2 items-center">
@@ -1051,7 +1106,7 @@ export default function StudentDatabaseApp() {
                     </div>
                     <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {groupedLulusStudents[groupKey].students.map(student => (
-                        <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-300 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col">
+                        <div key={student.id} className="bg-white border border-slate-300 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
                           <div className="flex flex-row sm:flex-col items-start sm:items-center p-3 sm:p-6 gap-3 sm:gap-4 relative z-10">
                             <div className="absolute left-0 top-0 bottom-0 w-1.5 sm:w-full sm:h-1.5 sm:bottom-auto bg-gradient-to-b sm:bg-gradient-to-r from-purple-400 to-purple-600"></div>
                             
@@ -1100,6 +1155,7 @@ export default function StudentDatabaseApp() {
         
         {currentSection === 'plan' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             {/* ... (PLaN View content same as before) ... */}
              <div className="flex justify-between items-center mb-8">
               <h2 className="text-2xl font-extrabold text-blue-900 tracking-tight">PLaN (Thn 4-6)</h2>
               <div className="flex gap-2 items-center">
@@ -1123,9 +1179,9 @@ export default function StudentDatabaseApp() {
                       <h3 className="font-extrabold text-blue-900 text-lg flex items-center gap-2"><BookOpenCheck className="text-blue-500" size={20} />{groupKey}</h3>
                       <span className="text-xs font-bold bg-white text-blue-700 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm">{groupedPlanStudents[groupKey].length} Students</span>
                     </div>
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                        {groupedPlanStudents[groupKey].map(student => (
-                         <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-100 transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
+                         <div key={student.id} className="bg-white border border-slate-100 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
                            <div className="flex flex-row sm:flex-col items-start sm:items-center p-3 sm:p-6 gap-3 sm:gap-4 relative z-10">
                              <div className="absolute left-0 top-0 bottom-0 w-1.5 sm:w-full sm:h-1.5 sm:bottom-auto bg-gradient-to-b sm:bg-gradient-to-r from-blue-400 to-blue-600"></div>
                              
@@ -1157,7 +1213,7 @@ export default function StudentDatabaseApp() {
                            </div>
                             
                            {student.isNewStudent && (
-                            <div className="absolute top-2 left-3 sm:top-2 sm:left-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
+                            <div className="absolute top-2 left-3 sm:top-2 sm:right-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
                               <span className="w-1.5 h-1.5 bg-white rounded-full"></span> NEW
                             </div>
                           )}
@@ -1228,26 +1284,61 @@ export default function StudentDatabaseApp() {
                         const studentStats = calculateStats(student.attendanceRecords || []);
                         return (
                         <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-300 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col">
-                          <div className="flex flex-row sm:flex-col items-start sm:items-center p-3 sm:p-6 gap-3 sm:gap-4 relative z-10">
-                              <div className={`absolute left-0 top-0 bottom-0 w-1.5 sm:w-full sm:h-1.5 sm:bottom-auto ${studentStats.percent >= 75 ? 'bg-gradient-to-b sm:bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-gradient-to-b sm:bg-gradient-to-r from-amber-400 to-amber-600'}`}></div>
+                          
+                          {/* Desktop View (Vertical Card) */}
+                          <div className="hidden sm:flex flex-col items-center p-3 gap-4">
+                              <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-20 h-20" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+                              
+                              <div className="w-full text-center">
+                                <h3 className="font-bold text-sm text-slate-900 leading-tight mb-1">{student.name}</h3>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">{student.gender || 'Lelaki'}</p>
+                                
+                                <div className="flex flex-col gap-1 w-full">
+                                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase">
+                                    <span>Attendance</span>
+                                    <span className={studentStats.percent >= 75 ? 'text-emerald-600' : 'text-amber-600'}>{studentStats.percent}%</span>
+                                  </div>
+                                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div className={`h-full rounded-full ${studentStats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${studentStats.percent}%` }}></div></div>
+                                </div>
+                              </div>
+                              
+                              <div className="mt-2 text-[10px] text-slate-400 text-center font-medium">
+                                Updated: {student.updatedAt ? formatDate(student.updatedAt) : 'New'}
+                              </div>
+
+                              {role === 'admin' && (
+                                <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm">
+                                    <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded"><StickyNote size={14} /></button>
+                                    <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Calendar size={14} /></button>
+                                    <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded"><Edit2 size={14} /></button>
+                                    <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 hover:bg-purple-50 rounded"><ArrowRight size={14} /></button>
+                                    <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
+                                </div>
+                              )}
+                          </div>
+
+                          {/* Mobile View (Horizontal Compact) */}
+                          <div className="sm:hidden flex flex-row items-start p-3 gap-3 relative z-10">
+                              <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${studentStats.percent >= 75 ? 'bg-gradient-to-b from-emerald-400 to-emerald-600' : 'bg-gradient-to-b from-amber-400 to-amber-600'}`}></div>
                               
                               <div className="flex flex-col items-center gap-2">
-                                <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-16 h-16 sm:w-24 sm:h-24" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
-                                {/* Mobile Admin Buttons - 2 Cols */}
+                                <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+                                {/* Mobile Admin Buttons - 2 Cols under Avatar */}
                                 {role === 'admin' && (
-                                    <div className="sm:hidden grid grid-cols-2 gap-1 w-[70px]">
-                                       <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 bg-amber-50 rounded border border-amber-100 shadow-sm flex items-center justify-center"><StickyNote size={12} /></button>
-                                       <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 bg-blue-50 rounded border border-blue-100 shadow-sm flex items-center justify-center"><Calendar size={12} /></button>
-                                       <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 rounded border border-slate-100 shadow-sm flex items-center justify-center"><Edit2 size={12} /></button>
-                                       <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 bg-purple-50 rounded border border-purple-100 shadow-sm flex items-center justify-center"><ArrowRight size={12} /></button>
-                                       <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 rounded border border-red-100 shadow-sm flex items-center justify-center col-span-2"><Trash2 size={12} /></button>
+                                    <div className="grid grid-cols-2 gap-1 w-[70px]">
+                                       <button onClick={() => openNotesModal(student)} className="p-1 text-amber-500 bg-amber-50 rounded border border-amber-100 shadow-sm flex items-center justify-center"><StickyNote size={12} /></button>
+                                       <button onClick={() => openAttendanceModal(student)} className="p-1 text-blue-500 bg-blue-50 rounded border border-blue-100 shadow-sm flex items-center justify-center"><Calendar size={12} /></button>
+                                       <button onClick={() => openEdit(student)} className="p-1 text-slate-500 bg-slate-50 rounded border border-slate-100 shadow-sm flex items-center justify-center"><Edit2 size={12} /></button>
+                                       <button onClick={() => toggleStudentStatus(student)} className="p-1 text-purple-500 bg-purple-50 rounded border border-purple-100 shadow-sm flex items-center justify-center"><ArrowRight size={12} /></button>
+                                       <button onClick={() => confirmDelete(student)} className="p-1 text-red-500 bg-red-50 rounded border border-red-100 shadow-sm flex items-center justify-center col-span-2"><Trash2 size={12} /></button>
                                     </div>
                                 )}
                               </div>
                               
-                              <div className="flex-1 min-w-0 text-left sm:text-center w-full">
-                                <h3 className="font-bold text-sm sm:text-lg text-slate-900 leading-tight mb-1 break-words">{student.name}</h3>
-                                <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">{student.gender || 'Lelaki'}</p>
+                              <div className="flex-1 min-w-0 text-left">
+                                <h3 className="font-bold text-sm text-slate-900 leading-tight mb-1 break-words">{student.name}</h3>
+                                <div className="text-xs font-medium text-slate-600 mb-0.5">{className}</div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">{student.gender || 'Lelaki'}</p>
                                 
                                 <div className={`inline-block items-center justify-center text-[10px] font-bold text-white px-2 py-0.5 rounded-md uppercase tracking-wide mb-2 shadow-sm ${getSubjectBadgeColor(student.subject)}`}>{student.subject}</div>
 
@@ -1259,20 +1350,10 @@ export default function StudentDatabaseApp() {
                                   <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div className={`h-full rounded-full ${studentStats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${studentStats.percent}%` }}></div></div>
                                 </div>
                               </div>
-
-                              {role === 'admin' && (
-                                <div className="hidden sm:flex flex-col absolute top-2 right-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
-                                    <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded"><StickyNote size={14} /></button>
-                                    <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Calendar size={14} /></button>
-                                    <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded"><Edit2 size={14} /></button>
-                                    <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 hover:bg-purple-50 rounded"><ArrowRight size={14} /></button>
-                                    <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
-                                </div>
-                              )}
                           </div>
 
                           {student.isNewStudent && (
-                            <div className="absolute top-2 left-3 sm:top-2 sm:left-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
+                            <div className="absolute top-2 left-3 sm:left-auto sm:right-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
                               <span className="w-1.5 h-1.5 bg-white rounded-full"></span> NEW
                             </div>
                           )}
