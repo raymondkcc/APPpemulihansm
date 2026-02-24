@@ -115,7 +115,6 @@ const RetroProgressBar = ({ progress }) => {
           style={{ width: `${progress}%` }}
         >
           <div className="absolute top-0 left-0 w-full h-full animate-progress-shine opacity-30 bg-gradient-to-r from-transparent via-white to-transparent transform -skew-x-12"></div>
-          <div className="absolute inset-0 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAIklEQVQIW2NkQAKrVq36zwjjgzjwqUAJIF0CdgKmEaQRAAAzDDHpX3kUzwAAAABJRU5ErkJggg==')] opacity-10"></div>
         </div>
         <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-shadow-sm mix-blend-difference text-white">
           {Math.round(progress)}% Completed
@@ -262,7 +261,7 @@ const Avatar = ({ name, color, photoUrl, size = "w-12 h-12", onClick }) => {
     );
   }
 
-  const initials = (name || '?')
+  const initials = (name || "?")
     .split(' ')
     .map(n => n[0])
     .join('')
@@ -373,13 +372,28 @@ export default function StudentDatabaseApp() {
   
   const [role, setRole] = useState('user'); 
   const [currentSection, setCurrentSection] = useState('profile'); 
-  const [isDarkMode, setIsDarkMode] = useState(false);
   
+  // Theme Persistence
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('darkMode');
+      return saved !== null ? JSON.parse(saved) : false;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(isDarkMode));
+  }, [isDarkMode]);
+
+  // Filters
   const [profileYearFilter, setProfileYearFilter] = useState('All');
   const [classFilter, setClassFilter] = useState('All');
   const [subjectFilter, setSubjectFilter] = useState('All');
+  const [mbkTypeFilter, setMbkTypeFilter] = useState('All');
   const [statsFilters, setStatsFilters] = useState({ year: 'All', gender: 'All', subject: 'All' });
 
+  // Auth & Modals
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -387,7 +401,7 @@ export default function StudentDatabaseApp() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
-    name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false, qrCodeUrl: ''
+    name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: 'Lelaki', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false, qrCodeUrl: ''
   });
 
   const [rawImageSrc, setRawImageSrc] = useState(null);
@@ -400,6 +414,7 @@ export default function StudentDatabaseApp() {
   const [studentProgressData, setStudentProgressData] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Confirmations & Actions
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, studentId: null, studentName: '' });
   const [moveConfirmation, setMoveConfirmation] = useState({ isOpen: false, student: null, newStatus: '' });
   const [moveDate, setMoveDate] = useState(new Date().toISOString().split('T')[0]);
@@ -410,22 +425,24 @@ export default function StudentDatabaseApp() {
   const [selectedStudentForNotes, setSelectedStudentForNotes] = useState(null);
   const [noteForm, setNoteForm] = useState({ id: null, text: '', date: new Date().toISOString().split('T')[0] });
 
+  // Browser Tab Name
   useEffect(() => {
     document.title = "Pemulihan SJKC Sin Ming";
   }, []);
 
+  // Set up Firebase Auth and Data Listeners independently to avoid blocking
   useEffect(() => {
     if (!auth) return;
+    
+    // Attempt anonymous sign-in so DB load doesn't hang
+    signInAnonymously(auth).catch(() => {});
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser) {
-        if (currentUser.email === "admin@pemulihan.com") {
-          setRole('admin');
-        } else {
-          setRole('user');
-        }
+      if (currentUser && currentUser.email === "admin@pemulihan.com") {
+        setRole('admin');
       } else {
-        signInAnonymously(auth).catch((err) => console.error("Anon auth error", err));
+        setRole('user');
       }
     });
     return () => unsubscribe();
@@ -440,10 +457,13 @@ export default function StudentDatabaseApp() {
         }));
         setStudents(studentList);
         setLoading(false);
-      }, (error) => { console.error("Firestore error:", error); setLoading(false); }
+      }, (error) => { 
+        console.error("Firestore error:", error); 
+        setLoading(false); 
+      }
     );
     return () => unsubscribe();
-  }, []); // Run independently of user state to fix infinite loading
+  }, []);
 
   // --- Logic ---
   const subjects = ['Pemulihan BM', 'Pemulihan Matematik', 'Pemulihan BM dan Matematik'];
@@ -466,8 +486,9 @@ export default function StudentDatabaseApp() {
     setProfileYearFilter('All');
     setClassFilter('All');
     setSubjectFilter('All');
+    setMbkTypeFilter('All');
     if (tabId === 'mbk') setProfileYearFilter(''); 
-    // Reset Progress selection when leaving tab
+    
     if (tabId !== 'progress') {
        setSelectedStudentForProgress(null);
        setSearchQuery('');
@@ -561,6 +582,10 @@ export default function StudentDatabaseApp() {
       if (formData.program === 'pemulihan') {
         dataToSave.className = formData.className; 
         dataToSave.subject = formData.subject;
+        dataToSave.mbkType = '';
+        dataToSave.remarks = '';
+        dataToSave.docLink = '';
+        dataToSave.qrCodeUrl = '';
       } else {
         dataToSave.mbkType = formData.mbkType; 
         dataToSave.remarks = formData.remarks || ''; 
@@ -633,38 +658,17 @@ export default function StudentDatabaseApp() {
       DocLink: s.docLink || '',
     });
 
-    const profileData = students.filter(s => {
-       const year = getStudentCurrentYear(s);
-       return s.program === 'pemulihan' && s.status !== 'Lulus' && year <= 3;
-    }).map(formatStudent);
-    if(profileData.length > 0) {
-      const ws = XLSX.utils.json_to_sheet(profileData);
-      XLSX.utils.book_append_sheet(workbook, ws, "Profile (1-3)");
-    }
+    const profileData = students.filter(s => s.program === 'pemulihan' && s.status !== 'Lulus' && getStudentCurrentYear(s) <= 3).map(formatStudent);
+    if(profileData.length > 0) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(profileData), "Profile (1-3)");
 
-    const planData = students.filter(s => {
-       const year = getStudentCurrentYear(s);
-       return s.program === 'pemulihan' && s.status !== 'Lulus' && year >= 4 && year <= 6;
-    }).map(formatStudent);
-    if(planData.length > 0) {
-      const ws = XLSX.utils.json_to_sheet(planData);
-      XLSX.utils.book_append_sheet(workbook, ws, "PLaN (4-6)");
-    }
+    const planData = students.filter(s => s.program === 'pemulihan' && s.status !== 'Lulus' && getStudentCurrentYear(s) >= 4 && getStudentCurrentYear(s) <= 6).map(formatStudent);
+    if(planData.length > 0) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(planData), "PLaN (4-6)");
 
     const mbkData = students.filter(s => s.program === 'mbk').map(formatStudent);
-    if(mbkData.length > 0) {
-      const ws = XLSX.utils.json_to_sheet(mbkData);
-      XLSX.utils.book_append_sheet(workbook, ws, "MBK");
-    }
+    if(mbkData.length > 0) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(mbkData), "MBK");
 
-    const lulusData = students.filter(s => s.status === 'Lulus').map(s => ({
-      ...formatStudent(s),
-      GraduationDate: s.graduationDate || ''
-    }));
-    if(lulusData.length > 0) {
-      const ws = XLSX.utils.json_to_sheet(lulusData);
-      XLSX.utils.book_append_sheet(workbook, ws, "Lulus");
-    }
+    const lulusData = students.filter(s => s.status === 'Lulus').map(s => ({ ...formatStudent(s), GraduationDate: s.graduationDate || '' }));
+    if(lulusData.length > 0) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(lulusData), "Lulus");
 
     XLSX.writeFile(workbook, "Student_Database.xlsx");
   };
@@ -697,6 +701,8 @@ export default function StudentDatabaseApp() {
       const existingRecord = selectedStudentForAttendance.attendanceRecords?.find(r => r.date === newRecord.date);
       if (existingRecord) await updateDoc(ref, { attendanceRecords: arrayRemove(existingRecord) });
       await updateDoc(ref, { attendanceRecords: arrayUnion(newRecord) });
+      
+      setIsAttendanceModalOpen(false); // Auto Close Request
     } catch (err) { console.error("Error marking attendance:", err); }
   };
 
@@ -740,15 +746,6 @@ export default function StudentDatabaseApp() {
 
   const startEditNote = (note) => setNoteForm({ id: note.id, text: note.text, date: note.date });
 
-  const handleCheckOKU = (ic) => {
-    if (!ic) return;
-    const textArea = document.createElement("textarea");
-    textArea.value = ic; document.body.appendChild(textArea); textArea.select();
-    try { document.execCommand('copy'); } catch (err) { console.error('Copy failed', err); }
-    document.body.removeChild(textArea);
-    window.open('https://oku.jkm.gov.my/semakan_oku', '_blank');
-  };
-
   const toggleStudentStatus = (student) => {
     if (!user || role !== 'admin') return;
     const newStatus = student.status === 'Lulus' ? 'Active' : 'Lulus';
@@ -772,7 +769,7 @@ export default function StudentDatabaseApp() {
     setEditingId(student.id);
     setFormData({
       name: student.name, program: student.program || 'pemulihan', className: student.className || '',
-      subject: student.subject || 'Pemulihan BM', ic: student.ic || '', gender: student.gender || '',
+      subject: student.subject || 'Pemulihan BM', ic: student.ic || '', gender: student.gender || 'Lelaki',
       mbkType: student.mbkType || 'MBK', status: student.status || 'Active', photoUrl: student.photoUrl || '',
       remarks: student.remarks || '', docLink: student.docLink || '', isNewStudent: student.isNewStudent || false, qrCodeUrl: student.qrCodeUrl || ''
     });
@@ -788,14 +785,14 @@ export default function StudentDatabaseApp() {
 
   const resetForm = () => {
     setEditingId(null);
-    setFormData({ name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: '', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false, qrCodeUrl: '' });
+    setFormData({ name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: 'Lelaki', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false, qrCodeUrl: '' });
   };
 
   // --- Filtering & Derived State ---
   
   const availableYears = useMemo(() => {
     const pemulihanStudents = students.filter(s => (!s.program || s.program === 'pemulihan'));
-    const years = new Set(pemulihanStudents.map(s => getYearFromClassString(s.className)));
+    const years = new Set(pemulihanStudents.map(s => getYearFromClassString(s.className)).filter(y => y !== null));
     return ['All', ...Array.from(years).sort()];
   }, [students]);
 
@@ -872,19 +869,21 @@ export default function StudentDatabaseApp() {
         if (program !== 'mbk') return false;
         const schoolYear = calculateSchoolYearFromIC(s.ic); 
         if (schoolYear !== null && schoolYear > 6) return false; 
-        // Allow basic search filtering on MBK tab too
-        return s.name.toLowerCase().includes(profileYearFilter === 'All' || profileYearFilter === '' ? '' : profileYearFilter.toLowerCase());
+        
+        const matchSearch = profileYearFilter === 'All' || profileYearFilter === '' || (s.name || '').toLowerCase().includes(profileYearFilter.toLowerCase());
+        const matchType = mbkTypeFilter === 'All' || s.mbkType === mbkTypeFilter;
+        return matchSearch && matchType;
       }
       
       if (currentSection === 'progress') {
          if (s.program !== 'pemulihan' || s.status === 'Lulus') return false;
          const studentYear = getStudentCurrentYear(s);
-         if (studentYear > 3) return false; // Filter out PLaN (Yr 4-6)
+         if (studentYear > 3) return false; 
          
          const matchesYear = profileYearFilter === 'All' || studentYear === parseInt(profileYearFilter);
          const matchesClass = classFilter === 'All' || s.className === classFilter;
          const matchesSubject = subjectFilter === 'All' || s.subject === subjectFilter;
-         const matchesSearch = searchQuery === '' || s.name.toLowerCase().includes(searchQuery.toLowerCase());
+         const matchesSearch = searchQuery === '' || (s.name || '').toLowerCase().includes(searchQuery.toLowerCase());
          
          return matchesYear && matchesClass && matchesSubject && matchesSearch;
       }
@@ -899,1008 +898,1062 @@ export default function StudentDatabaseApp() {
         const studentYear = getYearFromClassString(s.className);
         const filterYear = parseInt(statsFilters.year);
         const matchYear = statsFilters.year === 'All' || (studentYear !== null && studentYear === filterYear);
-        const matchGender = statsFilters.gender === 'All' || s.gender === statsFilters.gender;
+        const matchGender = statsFilters.gender === 'All' || (s.gender || 'Lelaki') === statsFilters.gender;
         const matchSubject = statsFilters.subject === 'All' || s.subject === statsFilters.subject;
         return matchYear && matchGender && matchSubject;
       }
       return false;
     });
-  }, [students, profileYearFilter, classFilter, subjectFilter, currentSection, statsFilters, searchQuery]);
+  }, [students, profileYearFilter, classFilter, subjectFilter, currentSection, statsFilters, searchQuery, mbkTypeFilter]);
 
   return (
-    <div className={`min-h-screen font-sans selection:bg-indigo-100 dark:selection:bg-indigo-900 transition-colors duration-300 ${isDarkMode ? 'dark bg-slate-900 text-slate-100' : 'bg-gradient-to-br from-slate-50 to-slate-100 text-slate-800'}`}>
-      {/* Navbar - same */}
-      <nav className={`backdrop-blur-md border-b sticky top-0 z-30 transition-colors duration-300 ${isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200'}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center gap-3">
-              <div className="bg-indigo-600 p-2.5 rounded-xl shadow-md shadow-indigo-200 dark:shadow-none">
-                <GraduationCap className="text-white h-6 w-6" />
-              </div>
-              <span className="font-bold text-lg tracking-tight hidden sm:block text-slate-900 dark:text-white">
-                Pengurusan Program Pemulihan <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-cyan-400 font-mono tracking-widest uppercase drop-shadow-md">DIGITAL</span>
-              </span>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => setIsDarkMode(!isDarkMode)} 
-                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-500 dark:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                aria-label="Toggle Dark Mode"
-              >
-                {isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} />}
-              </button>
-
-              <div className={`rounded-full p-1 flex items-center text-xs font-bold shadow-inner ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100/80 backdrop-blur-sm'}`}>
-                <button onClick={() => handleRoleSwitch('admin')} className={`px-4 py-1.5 rounded-full transition-all duration-300 flex items-center gap-1.5 ${role === 'admin' ? (isDarkMode ? 'bg-slate-700 text-indigo-400 shadow-sm' : 'bg-white shadow-sm text-indigo-600') : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
-                  {role === 'admin' && <Shield size={12} className={isDarkMode ? "text-indigo-400" : "text-indigo-500"} />}
-                  Admin
-                </button>
-                <button onClick={() => handleRoleSwitch('user')} className={`px-4 py-1.5 rounded-full transition-all duration-300 ${role === 'user' ? (isDarkMode ? 'bg-slate-700 text-indigo-400 shadow-sm' : 'bg-white shadow-sm text-indigo-600') : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
-                  User
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className={`min-h-screen transition-colors duration-300 font-sans selection:bg-indigo-100 dark:selection:bg-indigo-900 ${isDarkMode ? 'dark' : ''}`}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-200 pb-24">
         
-        <div className="flex justify-center mb-8">
-          <div className="w-full overflow-x-auto pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 flex sm:justify-center">
-            <div className={`flex p-1.5 rounded-2xl shadow-sm border gap-1 min-w-max transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-            {[{ id: 'profile', label: 'Profile Pemulihan' }, { id: 'plan', label: 'PLaN' }, { id: 'mbk', label: 'Murid MBK & OKU' }, { id: 'lulus', label: 'Lulus' }, { id: 'stats', label: 'Statistik' }, { id: 'progress', label: 'Progress' }].map(tab => (
-              <button key={tab.id} onClick={() => handleTabChange(tab.id)} className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 whitespace-nowrap ${currentSection === tab.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white'}`}>{tab.label}</button>
-            ))}
-          </div>
-          </div>
-        </div>
-
-        {/* PROGRESS TAB */}
-        {currentSection === 'progress' && (
-           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-             {selectedStudentForProgress ? (
-               <div className={`rounded-3xl border shadow-sm overflow-hidden transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                 {/* Student Header */}
-                 <div className={`border-b p-6 flex flex-col md:flex-row justify-between items-center gap-4 transition-colors ${isDarkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                    <div className="flex items-center gap-4">
-                      <Avatar name={selectedStudentForProgress.name} color={selectedStudentForProgress.color} photoUrl={selectedStudentForProgress.photoUrl} size="w-20 h-20" />
-                      <div>
-                        <h3 className={`font-bold text-xl ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{selectedStudentForProgress.name}</h3>
-                        <p className={`text-sm mb-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{selectedStudentForProgress.className}</p>
-                        <div className={`inline-block px-2 py-0.5 rounded text-xs font-bold text-white shadow-sm ${getSubjectBadgeColor(selectedStudentForProgress.subject)}`}>
-                          {selectedStudentForProgress.subject}
-                        </div>
-                      </div>
-                    </div>
-                    <button onClick={() => setSelectedStudentForProgress(null)} className={`px-4 py-2 border rounded-xl text-sm font-bold shadow-sm transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700' : 'bg-white border-slate-300 hover:bg-slate-50'}`}>Change Student</button>
-                 </div>
-                 
-                 {/* Subject Toggle - Conditional */}
-                 <div className={`flex border-b transition-colors ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                    {(selectedStudentForProgress.subject === 'Pemulihan BM' || selectedStudentForProgress.subject === 'Pemulihan BM dan Matematik') && (
-                      <button onClick={() => setProgressSubject('BM')} className={`flex-1 py-4 text-center font-bold text-sm transition-colors ${progressSubject === 'BM' ? 'text-indigo-600 border-b-2 border-indigo-600' : (isDarkMode ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100')}`}>Bahasa Melayu</button>
-                    )}
-                    {(selectedStudentForProgress.subject === 'Pemulihan Matematik' || selectedStudentForProgress.subject === 'Pemulihan BM dan Matematik') && (
-                      <button onClick={() => setProgressSubject('MATH')} className={`flex-1 py-4 text-center font-bold text-sm transition-colors ${progressSubject === 'MATH' ? 'text-emerald-600 border-b-2 border-emerald-600' : (isDarkMode ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100')}`}>Matematik</button>
-                    )}
-                 </div>
-
-                 {/* Progress Content */}
-                 <div className="p-6 md:p-8">
-                    {/* Progress Bar */}
-                    <div className="mb-8">
-                       <div className="flex justify-between items-end mb-2">
-                         <h4 className={`font-bold text-lg ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Overall Progress</h4>
-                         <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                           {studentProgressData[progressSubject === 'BM' ? 'bm' : 'math']?.length || 0} / {progressSubject === 'BM' ? KEMAHIRAN_BM.length : KEMAHIRAN_MATH.length}
-                         </span>
-                       </div>
-                       <RetroProgressBar 
-                          progress={
-                            ((studentProgressData[progressSubject === 'BM' ? 'bm' : 'math']?.length || 0) / 
-                            (progressSubject === 'BM' ? KEMAHIRAN_BM.length : KEMAHIRAN_MATH.length)) * 100
-                          } 
-                       />
-                    </div>
-
-                    {/* Skills Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                       {(progressSubject === 'BM' ? KEMAHIRAN_BM : KEMAHIRAN_MATH).map((skill, index) => {
-                          const skillIndex = index + 1;
-                          const subjectKey = progressSubject === 'BM' ? 'bm' : 'math';
-                          const isCompleted = studentProgressData[subjectKey]?.includes(skillIndex);
-                          
-                          return (
-                            <div 
-                              key={index} 
-                              onClick={() => { if(role === 'admin') toggleSkill(skillIndex); }}
-                              className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all duration-200 ${isCompleted ? (progressSubject === 'BM' ? (isDarkMode ? 'bg-indigo-900/30 border-indigo-800' : 'bg-indigo-50 border-indigo-200 shadow-sm') : (isDarkMode ? 'bg-emerald-900/30 border-emerald-800' : 'bg-emerald-50 border-emerald-200 shadow-sm')) : (isDarkMode ? 'bg-slate-800 border-slate-700 hover:border-slate-500' : 'bg-white border-slate-100 hover:border-slate-300')}`}
-                            >
-                               <div className={`w-6 h-6 rounded-md flex items-center justify-center border transition-colors ${isCompleted ? (progressSubject === 'BM' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-emerald-600 border-emerald-600 text-white') : (isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-300')}`}>
-                                  {isCompleted && <Check size={16} strokeWidth={3} />}
-                               </div>
-                               <span className={`text-sm font-medium ${isCompleted ? (isDarkMode ? 'text-white' : 'text-slate-900') : (isDarkMode ? 'text-slate-400' : 'text-slate-500')}`}>{skill}</span>
-                            </div>
-                          );
-                       })}
-                    </div>
-                    
-                    {role === 'admin' && (
-                      <div className={`mt-8 pt-6 border-t flex justify-end ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
-                         <button onClick={handleProgressUpdate} className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95">
-                           <Save size={18} /> Save Progress
-                         </button>
-                      </div>
-                    )}
-                 </div>
-               </div>
-             ) : (
-               <div className={`rounded-3xl border shadow-sm p-6 md:p-12 text-center transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                  <div className="max-w-2xl mx-auto">
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 ${isDarkMode ? 'bg-indigo-900/50' : 'bg-indigo-50'}`}>
-                      <TrendingUp className="text-indigo-600 w-8 h-8" />
-                    </div>
-                    <h2 className={`text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Student Progress Tracker</h2>
-                    <p className={`mb-8 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Select a student from the list below to view or update their mastery of skills (Kemahiran).</p>
-                    
-                    {/* Filters */}
-                    <div className="flex flex-col sm:flex-row gap-3 w-full mb-4">
-                        <div className="relative group flex-1">
-                          <select className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 font-bold text-sm appearance-none transition-colors ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-700'}`} value={profileYearFilter} onChange={(e) => setProfileYearFilter(e.target.value)}>
-                            <option value="All">Filter: All Years</option>
-                            {availableYears.filter(y => y !== 'All').map(y => <option key={y} value={y}>{`Tahun ${y}`}</option>)}
-                          </select>
-                          <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none" />
-                        </div>
-                        <div className="relative group flex-1">
-                          <select className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 font-bold text-sm appearance-none transition-colors ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-700'}`} value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
-                            <option value="All">Filter: All Classes</option>
-                            {availableClasses.filter(c => c !== 'All').map(c => <option key={c} value={c}>{c}</option>)}
-                          </select>
-                          <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none" />
-                        </div>
-                        <div className="relative group flex-1">
-                          <select className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 font-bold text-sm appearance-none transition-colors ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-700'}`} value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
-                            <option value="All">Filter: All Subjects</option>
-                            {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                          <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none" />
-                        </div>
-                    </div>
-
-                    <div className="relative mb-6">
-                      <Search className="absolute left-4 top-3.5 text-slate-400 w-5 h-5" />
-                      <input 
-                        type="text" 
-                        placeholder="Search student name..." 
-                        className={`w-full pl-12 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium transition-colors ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                       {filteredStudents.map(student => (
-                         <button 
-                           key={student.id}
-                           onClick={() => {
-                              setSelectedStudentForProgress(student);
-                              setStudentProgressData(student.progress || { bm: [], math: [] });
-                              // Set default subject tab
-                              if ((student.subject || '').includes('Matematik') && !(student.subject || '').includes('BM')) {
-                                setProgressSubject('MATH');
-                              } else {
-                                setProgressSubject('BM');
-                              }
-                           }}
-                           className={`w-full flex items-center gap-3 p-3 border rounded-xl transition-all text-left group ${isDarkMode ? 'bg-slate-800 border-slate-700 hover:border-indigo-500' : 'bg-white border-slate-100 hover:border-indigo-200 hover:shadow-md'}`}
-                         >
-                            <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-10 h-10" />
-                            <div>
-                               <h4 className={`font-bold transition-colors ${isDarkMode ? 'text-white group-hover:text-indigo-400' : 'text-slate-800 group-hover:text-indigo-700'}`}>{student.name}</h4>
-                               <p className="text-xs text-slate-500">{student.className}</p>
-                            </div>
-                            <ArrowRight size={16} className={`ml-auto transition-colors ${isDarkMode ? 'text-slate-600 group-hover:text-indigo-400' : 'text-slate-300 group-hover:text-indigo-400'}`} />
-                         </button>
-                       ))}
-                       {filteredStudents.length === 0 && <p className="text-slate-400 text-sm py-4">No students found matching your search.</p>}
-                    </div>
-                  </div>
-               </div>
-             )}
-           </div>
-        )}
-
-        {/* STATS VIEW */}
-        {currentSection === 'stats' && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className={`p-6 rounded-2xl border shadow-sm transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-              <h3 className={`text-lg font-bold mb-4 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                <Filter size={20} className="text-indigo-500" /> Find Database
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="relative">
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Year (Tahun)</label>
-                  <select className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 appearance-none font-medium transition-colors ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-700'}`} value={statsFilters.year} onChange={(e) => setStatsFilters(prev => ({...prev, year: e.target.value}))}>
-                    <option value="All">Filter: All Years</option>
-                    {availableYears.filter(y => y !== 'All').map(y => <option key={y} value={y}>{`Tahun ${y}`}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-9 text-slate-400 w-4 h-4 pointer-events-none" />
+        {/* Navbar */}
+        <nav className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 transition-colors duration-300">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between h-16 items-center">
+              <div className="flex items-center gap-3">
+                <div className="bg-indigo-600 p-2.5 rounded-xl shadow-md shadow-indigo-200 dark:shadow-none">
+                  <GraduationCap className="text-white h-6 w-6" />
                 </div>
-                <div className="relative">
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Gender</label>
-                  <select className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 appearance-none font-medium transition-colors ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-700'}`} value={statsFilters.gender} onChange={(e) => setStatsFilters(prev => ({...prev, gender: e.target.value}))}>
-                    <option value="All">Filter: All Jantina</option>
-                    <option value="Lelaki">Lelaki</option>
-                    <option value="Perempuan">Perempuan</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-9 text-slate-400 w-4 h-4 pointer-events-none" />
-                </div>
-                <div className="relative">
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Subject</label>
-                  <select className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 appearance-none font-medium transition-colors ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-700'}`} value={statsFilters.subject} onChange={(e) => setStatsFilters(prev => ({...prev, subject: e.target.value}))}>
-                    <option value="All">Filter: All Subjects</option>
-                    {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-9 text-slate-400 w-4 h-4 pointer-events-none" />
-                </div>
+                <span className="font-bold text-lg tracking-tight hidden sm:block text-slate-900 dark:text-white">
+                  Pengurusan Program Pemulihan <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-cyan-400 font-mono tracking-widest uppercase drop-shadow-md">DIGITAL</span>
+                </span>
+                <span className="font-bold text-lg tracking-tight sm:hidden text-slate-900 dark:text-white">
+                  Pemulihan <span className="text-indigo-600 dark:text-indigo-400">Sin Ming</span>
+                </span>
               </div>
-            </div>
-            <div className={`p-8 rounded-2xl border flex items-center justify-between shadow-sm transition-colors ${isDarkMode ? 'bg-orange-900/20 border-orange-800/50' : 'bg-orange-50 border-orange-100'}`}>
-              <div>
-                 <p className={`text-sm font-bold uppercase tracking-wider ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>Students Found (Pemulihan Only)</p>
-                 <h2 className={`text-5xl font-extrabold mt-1 tracking-tight ${isDarkMode ? 'text-orange-300' : 'text-orange-900'}`}>{filteredStudents.length}</h2>
-              </div>
-              <div className={`p-4 rounded-2xl ${isDarkMode ? 'bg-orange-900/50' : 'bg-orange-100'}`}>
-                <PieChart className="text-orange-500 w-12 h-12" />
-              </div>
-            </div>
-            {filteredStudents.length > 0 && (
-              <div className={`rounded-2xl border shadow-sm overflow-hidden transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                <div className="overflow-x-auto w-full">
-                <table className="w-full text-left text-sm whitespace-nowrap md:whitespace-normal">
-                  <thead className={`border-b ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                    <tr>
-                      <th className={`px-4 py-3 md:px-6 md:py-4 font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Name</th>
-                      <th className={`px-4 py-3 md:px-6 md:py-4 font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Gender</th>
-                      <th className={`px-4 py-3 md:px-6 md:py-4 font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Class</th>
-                      <th className={`px-4 py-3 md:px-6 md:py-4 font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Subject</th>
-                      <th className={`px-4 py-3 md:px-6 md:py-4 font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className={`divide-y ${isDarkMode ? 'divide-slate-700' : 'divide-slate-50'}`}>
-                    {filteredStudents.map(student => (
-                      <tr key={student.id} className={`transition-colors ${isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50/80'}`}>
-                        <td className={`px-4 py-3 md:px-6 md:py-4 font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{student.name}</td>
-                        <td className={`px-4 py-3 md:px-6 md:py-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{student.gender || 'Lelaki'}</td>
-                        <td className="px-4 py-3 md:px-6 md:py-4 font-mono text-xs">
-                          <span className={`rounded px-2 py-1 ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>{student.className}</span>
-                        </td>
-                        <td className={`px-4 py-3 md:px-6 md:py-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{student.subject}</td>
-                         <td className="px-4 py-3 md:px-6 md:py-4">
-                           <span className={`px-3 py-1 rounded-full text-xs font-bold ${student.status === 'Lulus' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400'}`}>
-                             {student.status || 'Active'}
-                           </span>
-                         </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* MBK VIEW */}
-        {currentSection === 'mbk' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-              <h2 className={`text-2xl font-extrabold tracking-tight ${isDarkMode ? 'text-indigo-400' : 'text-indigo-900'}`}>Senarai Murid MBK & OKU</h2>
-              <div className="flex gap-3 w-full md:w-auto items-center">
-                {role === 'admin' && (
-                  <button onClick={openAdd} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white px-5 py-2.5 rounded-xl shadow-md shadow-indigo-200 dark:shadow-none transition-all hover:-translate-y-0.5 font-bold text-sm">
-                    <Plus size={18} strokeWidth={2.5} /> Add Student
-                  </button>
-                )}
-                <button onClick={exportToExcel} className={`flex-1 md:flex-none flex items-center justify-center gap-2 text-sm font-bold px-5 py-2.5 border rounded-xl transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                  <Download size={18} /> Export Excel
+              
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setIsDarkMode(!isDarkMode)} 
+                  className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-500 dark:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  aria-label="Toggle Dark Mode"
+                >
+                  {isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} />}
                 </button>
+
+                <div className="bg-slate-100/80 dark:bg-slate-800 backdrop-blur-sm rounded-full p-1 flex items-center text-xs font-bold shadow-inner">
+                  <button onClick={() => handleRoleSwitch('admin')} className={`px-4 py-1.5 rounded-full transition-all duration-300 flex items-center gap-1.5 ${role === 'admin' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
+                    {role === 'admin' && <Shield size={12} className="text-indigo-500 dark:text-indigo-400" />}
+                    Admin
+                  </button>
+                  <button onClick={() => handleRoleSwitch('user')} className={`px-4 py-1.5 rounded-full transition-all duration-300 ${role === 'user' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
+                    User
+                  </button>
+                </div>
               </div>
             </div>
-            {loading ? (
-              <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-100 border-t-indigo-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading database...</p></div>
-            ) : filteredStudents.length === 0 ? (
-              <div className={`text-center py-24 rounded-3xl border border-dashed shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`}>
-                <div className={`rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-50'}`}><Accessibility className={`${isDarkMode ? 'text-slate-500' : 'text-slate-300'} w-10 h-10`} /></div>
-                <h3 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>No MBK students found</h3>
-                <p className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Currently showing Year 1 to Year 6 only.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-                {filteredStudents.map(student => {
-                  const year = calculateSchoolYearFromIC(student.ic);
-                  return (
-                  <div key={student.id} className={`rounded-2xl shadow-sm hover:shadow-lg border transition-all duration-300 hover:-translate-y-1 relative group overflow-hidden flex flex-col ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-                    <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
-                    <div className="hidden sm:flex flex-col items-center p-6 gap-4">
-                      <Avatar name={student.name} color={student.color || 'bg-indigo-500'} photoUrl={student.photoUrl} size="w-24 h-24" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
-                      <div className="text-center">
-                        <h3 className={`font-bold text-lg leading-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{student.name}</h3>
-                        <div className="flex items-center justify-center gap-2 mb-3"><CreditCard size={16} className="text-slate-400" /><span className={`font-bold tracking-wide font-mono ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{student.ic}</span></div>
-                        <div className="space-y-2">
-                          <div className={`p-2 rounded-lg text-sm font-medium ${isDarkMode ? 'bg-indigo-900/30 text-indigo-200' : 'bg-indigo-50 text-indigo-900'}`}>{year < 1 ? 'Pra-sekolah' : `Tahun ${year}`}</div>
-                          <div className={`flex items-center justify-center gap-2 text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                            {student.gender} • <span className={`px-2 py-0.5 rounded text-xs font-bold ${student.mbkType === 'OKU' ? (isDarkMode ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-100 text-emerald-700') : (isDarkMode ? 'bg-amber-900/30 text-amber-400' : 'bg-amber-100 text-amber-700')}`}>{student.mbkType || 'MBK'}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                       {/* Remarks Section */}
-                       {student.remarks && (
-                        <div className={`w-full mt-2 p-3 border rounded-lg flex items-start gap-2 text-left ${isDarkMode ? 'bg-yellow-900/20 border-yellow-800/50' : 'bg-yellow-50 border-yellow-200'}`}>
-                          <MessageSquare size={16} className={`mt-0.5 flex-shrink-0 ${isDarkMode ? 'text-yellow-500' : 'text-yellow-600'}`} />
-                          <p className={`text-xs italic ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{student.remarks}</p>
-                        </div>
-                      )}
-
-                       <div className={`mt-2 w-full pt-4 border-t flex flex-col gap-2 ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
-                        <button onClick={() => window.open(student.docLink, '_blank')} disabled={!student.docLink} className={`flex-1 flex items-center justify-center gap-2 text-sm font-bold text-white py-2.5 rounded-xl transition-all shadow-sm active:scale-95 ${student.docLink ? 'bg-indigo-600 hover:bg-indigo-700' : (isDarkMode ? 'bg-slate-700 cursor-not-allowed text-slate-500' : 'bg-slate-300 cursor-not-allowed')}`} title={student.docLink ? 'Open Document' : 'No document linked'}>
-                          <FileText size={16} /> Documents
-                        </button>
-                        <button onClick={() => handleCheckOKU(student.ic)} className={`flex-1 flex items-center justify-center gap-2 text-sm font-bold text-white py-2.5 rounded-xl transition-all shadow-sm ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-900 hover:bg-slate-800'}`}>
-                          <Search size={16} /> Semakan OKU
-                        </button>
-                      </div>
-
-                      {role === 'admin' && (
-                        <div className={`absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg backdrop-blur-sm shadow-sm border ${isDarkMode ? 'bg-slate-800/90 border-slate-700' : 'bg-white/90 border-slate-100'}`}>
-                            <button onClick={() => openEdit(student)} className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-50'}`}><Edit2 size={16} /></button>
-                            <button onClick={() => confirmDelete(student)} className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-400 hover:text-red-600 hover:bg-slate-50'}`}><Trash2 size={16} /></button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Mobile View - Compact Side by Side */}
-                    <div className="sm:hidden flex flex-row items-start p-3 gap-3 relative z-10">
-                      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-indigo-500 to-purple-500"></div>
-                      <div className="flex flex-col items-center gap-2">
-                        <Avatar name={student.name} color={student.color || 'bg-indigo-500'} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
-                        
-                        {role === 'admin' && (
-                           <div className="grid grid-cols-2 gap-1 w-[70px]">
-                              <button onClick={() => openNotesModal(student)} className={`p-1 rounded border shadow-sm flex items-center justify-center ${isDarkMode ? 'text-amber-500 bg-amber-900/30 border-amber-800' : 'text-amber-500 bg-amber-50 border-amber-100'}`}><StickyNote size={12} /></button>
-                              <button onClick={() => openEdit(student)} className={`p-1 rounded border shadow-sm flex items-center justify-center ${isDarkMode ? 'text-slate-400 bg-slate-700 border-slate-600' : 'text-slate-500 bg-slate-50 border-slate-100'}`}><Edit2 size={12} /></button>
-                              <button onClick={() => confirmDelete(student)} className={`p-1 rounded border shadow-sm flex items-center justify-center col-span-2 ${isDarkMode ? 'text-red-500 bg-red-900/30 border-red-800' : 'text-red-500 bg-red-50 border-red-100'}`}><Trash2 size={12} /></button>
-                           </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex-1 min-w-0 text-left">
-                        <h3 className={`font-bold text-sm leading-tight mb-1 break-words ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{student.name}</h3>
-                        <div className={`text-xs font-medium mb-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{year < 1 ? 'Pra-sekolah' : `Tahun ${year}`}</div>
-                        <div className={`text-[10px] font-bold uppercase tracking-wide mb-1 flex items-center gap-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
-                          {student.gender || 'Lelaki'}
-                          <span className={`px-1.5 py-0.5 rounded border text-[9px] ${student.mbkType === 'OKU' ? (isDarkMode ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800' : 'bg-emerald-50 text-emerald-700 border-emerald-200') : (isDarkMode ? 'bg-amber-900/30 text-amber-400 border-amber-800' : 'bg-amber-50 text-amber-700 border-amber-200')}`}>{student.mbkType || 'MBK'}</span>
-                        </div>
-                        
-                        {/* Remarks Section Compact */}
-                        {student.remarks && (
-                           <div className={`text-[10px] italic px-2 py-1 rounded border flex items-start gap-1 mt-1 ${isDarkMode ? 'text-slate-400 bg-yellow-900/20 border-yellow-800/50' : 'text-slate-500 bg-yellow-50 border-yellow-100'}`}>
-                              <MessageSquare size={10} className={`mt-0.5 flex-shrink-0 ${isDarkMode ? 'text-yellow-500' : ''}`} />
-                              <span className="line-clamp-2">{student.remarks}</span>
-                           </div>
-                        )}
-
-                        <div className="mt-2 flex flex-col gap-1">
-                           <button onClick={() => window.open(student.docLink, '_blank')} disabled={!student.docLink} className={`flex items-center justify-center gap-1 text-[10px] font-bold py-1 px-2 rounded transition-all border ${student.docLink ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-400 border-indigo-800' : 'bg-indigo-50 text-indigo-600 border-indigo-100') : (isDarkMode ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed' : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed')}`} title={student.docLink ? 'Open Document' : 'No document linked'}>
-                             <FileText size={12} /> {student.docLink ? 'Docs' : 'No Docs'}
-                           </button>
-                           <button onClick={() => handleCheckOKU(student.ic)} className={`flex items-center justify-center gap-1 text-[10px] font-bold py-1 px-2 rounded border ${isDarkMode ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-900 text-white'}`}>
-                             <Search size={12} /> Semakan OKU
-                           </button>
-                           {student.qrCodeUrl && (
-                             <button onClick={() => setFullScreenImage(student.qrCodeUrl)} className={`flex items-center justify-center gap-1 text-[10px] font-bold py-1 px-2 rounded transition-all border ${isDarkMode ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
-                               <QrCode size={12} /> QR Code
-                             </button>
-                           )}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {student.isNewStudent && (
-                      <div className="absolute top-2 left-3 sm:top-2 sm:left-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
-                        <Sparkles size={8} /> NEW
-                      </div>
-                    )}
-                  </div>
-                )})}
-              </div>
-            )}
           </div>
-        )}
+        </nav>
 
-        {/* PROFILE VIEW */}
-        {currentSection === 'profile' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className={`flex flex-col lg:flex-row gap-4 mb-8 justify-between items-start lg:items-center p-4 rounded-2xl shadow-sm border transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-              <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-                <div className="relative group">
-                  <select className={`w-full sm:w-48 px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold text-sm appearance-none transition-colors cursor-pointer ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'}`} value={profileYearFilter} onChange={(e) => setProfileYearFilter(e.target.value)}>
-                    <option value="All">Filter: All Years</option>
-                    {availableYears.filter(y => y !== 'All').map(y => <option key={y} value={y}>{`Tahun ${y}`}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
-                </div>
-                <div className="relative group">
-                  <select className={`w-full sm:w-48 px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold text-sm appearance-none transition-colors cursor-pointer ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'}`} value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
-                    <option value="All">Filter: All Classes</option>
-                    {availableClasses.filter(c => c !== 'All').map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
-                </div>
-                <div className="relative group">
-                  <select className={`w-full sm:w-48 px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold text-sm appearance-none transition-colors cursor-pointer ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'}`} value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
-                    <option value="All">Filter: All Subjects</option>
-                    {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
-                </div>
-              </div>
-
-              <div className="flex gap-3 w-full lg:w-auto items-center">
-                {role === 'admin' && currentSection === 'profile' && (
-                  <button onClick={openAdd} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white px-5 py-2.5 rounded-xl shadow-md shadow-blue-200 dark:shadow-none transition-all hover:-translate-y-0.5 font-bold text-sm"><Plus size={18} strokeWidth={2.5} /> Add Student</button>
-                )}
-                <button onClick={exportToExcel} className={`flex-1 lg:flex-none flex items-center justify-center gap-2 text-sm font-bold px-5 py-2.5 border rounded-xl transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Download size={18} /> Export Excel</button>
-              </div>
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          
+          <div className="flex justify-center mb-8">
+            <div className="w-full overflow-x-auto pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 flex sm:justify-center">
+              <div className="flex bg-white dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 gap-1 min-w-max">
+              {[{ id: 'profile', label: 'Profile Pemulihan' }, { id: 'plan', label: 'PLaN' }, { id: 'mbk', label: 'Murid MBK & OKU' }, { id: 'lulus', label: 'Lulus' }, { id: 'stats', label: 'Statistik' }, { id: 'progress', label: 'Progress' }].map(tab => (
+                <button key={tab.id} onClick={() => handleTabChange(tab.id)} className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 whitespace-nowrap ${currentSection === tab.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white'}`}>{tab.label}</button>
+              ))}
             </div>
+            </div>
+          </div>
 
-            {/* Student Groups */}
-            {loading ? (
-              <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading database...</p></div>
-            ) : Object.keys(groupedProfileStudents).length === 0 ? (
-              <div className={`text-center py-24 rounded-3xl border border-dashed shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`}><div className={`rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-50'}`}><Users className="text-slate-300 w-10 h-10" /></div><h3 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>No students found</h3><p className="text-slate-500">Try adjusting your filters.</p></div>
-            ) : (
-              <div className="space-y-10">
-                {Object.keys(groupedProfileStudents).sort().map(className => {
-                  const style = getClassColorStyle(className);
-                  return (
-                  <div key={className} className={`rounded-3xl border overflow-hidden shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                    <div className={`px-8 py-4 border-b ${style.border} flex items-center justify-between ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>
-                      <h3 className={`font-extrabold ${style.text} text-lg flex items-center gap-3`}><div className={`p-2 rounded-lg shadow-sm border ${style.border} ${isDarkMode ? 'bg-slate-900' : 'bg-white'}`}><School className={style.icon} size={20} /></div>{className}</h3>
-                      <span className={`text-xs font-bold ${style.icon} px-3 py-1.5 rounded-lg border ${style.border} shadow-sm ${isDarkMode ? 'bg-slate-900' : 'bg-white'}`}>{groupedProfileStudents[className].length} Students</span>
-                    </div>
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                      {groupedProfileStudents[className].map(student => {
-                        const studentStats = calculateStats(student.attendanceRecords || []);
-                        return (
-                        <div key={student.id} className={`rounded-2xl shadow-sm hover:shadow-lg border transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`}>
-                          
-                          {/* Desktop View (Vertical Card) */}
-                          <div className="hidden sm:flex flex-col items-center p-3 gap-4">
-                              <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-20 h-20" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
-                              
-                              <div className="w-full text-center">
-                                <h3 className={`font-bold text-sm leading-tight mb-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{student.name}</h3>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">{student.gender || 'Lelaki'}</p>
-                                
-                                <div className={`inline-block items-center justify-center text-[10px] font-bold text-white px-2 py-0.5 rounded-md uppercase tracking-wide mb-2 shadow-sm ${getSubjectBadgeColor(student.subject)}`}>{student.subject}</div>
-
-                                <div className="flex flex-col gap-1 w-full">
-                                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase">
-                                    <span>Attendance</span>
-                                    <span className={studentStats.percent >= 75 ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600') : (isDarkMode ? 'text-amber-400' : 'text-amber-600')}>{studentStats.percent}%</span>
-                                  </div>
-                                  <div className={`w-full rounded-full h-1.5 overflow-hidden ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'}`}><div className={`h-full rounded-full ${studentStats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${studentStats.percent}%` }}></div></div>
-                                </div>
-                              </div>
-
-                              {role === 'admin' && (
-                                <div className={`absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg backdrop-blur-sm border ${isDarkMode ? 'bg-slate-800/90 border-slate-700' : 'bg-white/90 border-slate-100'}`}>
-                                    <button onClick={() => openNotesModal(student)} className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-amber-500 hover:bg-slate-700' : 'text-amber-500 hover:bg-amber-50'}`}><StickyNote size={14} /></button>
-                                    <button onClick={() => openAttendanceModal(student)} className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-blue-500 hover:bg-slate-700' : 'text-blue-500 hover:bg-blue-50'}`}><Calendar size={14} /></button>
-                                    <button onClick={() => openEdit(student)} className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-400 hover:text-blue-600'}`}><Edit2 size={14} /></button>
-                                    <button onClick={() => toggleStudentStatus(student)} className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-purple-500 hover:bg-slate-700' : 'text-purple-500 hover:bg-purple-50'}`}><ArrowRight size={14} /></button>
-                                    <button onClick={() => confirmDelete(student)} className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-400 hover:bg-red-50'}`}><Trash2 size={14} /></button>
-                                </div>
-                              )}
+          {/* PROGRESS TAB */}
+          {currentSection === 'progress' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {selectedStudentForProgress ? (
+                <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                  {/* Student Header */}
+                  <div className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                      <div className="flex items-center gap-4">
+                        <Avatar name={selectedStudentForProgress.name} color={selectedStudentForProgress.color} photoUrl={selectedStudentForProgress.photoUrl} size="w-20 h-20" />
+                        <div>
+                          <h3 className="font-bold text-xl text-slate-900 dark:text-white">{selectedStudentForProgress.name}</h3>
+                          <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">{selectedStudentForProgress.className}</p>
+                          <div className={`inline-block px-2 py-0.5 rounded text-xs font-bold text-white shadow-sm ${getSubjectBadgeColor(selectedStudentForProgress.subject)}`}>
+                            {selectedStudentForProgress.subject}
                           </div>
+                        </div>
+                      </div>
+                      <button onClick={() => setSelectedStudentForProgress(null)} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-bold shadow-sm text-slate-700 dark:text-slate-200 transition-colors">Change Student</button>
+                  </div>
+                  
+                  {/* Subject Toggle - Conditional */}
+                  <div className="flex border-b border-slate-200 dark:border-slate-700">
+                      {(selectedStudentForProgress.subject === 'Pemulihan BM' || selectedStudentForProgress.subject === 'Pemulihan BM dan Matematik') && (
+                        <button onClick={() => setProgressSubject('BM')} className={`flex-1 py-4 text-center font-bold text-sm transition-colors ${progressSubject === 'BM' ? 'bg-white dark:bg-slate-800 text-indigo-600 border-b-2 border-indigo-600' : 'bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>Bahasa Melayu</button>
+                      )}
+                      {(selectedStudentForProgress.subject === 'Pemulihan Matematik' || selectedStudentForProgress.subject === 'Pemulihan BM dan Matematik') && (
+                        <button onClick={() => setProgressSubject('MATH')} className={`flex-1 py-4 text-center font-bold text-sm transition-colors ${progressSubject === 'MATH' ? 'bg-white dark:bg-slate-800 text-emerald-600 border-b-2 border-emerald-600' : 'bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>Matematik</button>
+                      )}
+                  </div>
 
-                          {/* Mobile View (Horizontal Compact) */}
-                          <div className="sm:hidden flex flex-row items-start p-3 gap-3 relative z-10">
-                              <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${studentStats.percent >= 75 ? 'bg-gradient-to-b from-emerald-400 to-emerald-600' : 'bg-gradient-to-b from-amber-400 to-amber-600'}`}></div>
+                  {/* Progress Content */}
+                  <div className="p-6 md:p-8">
+                      {/* Progress Bar */}
+                      <div className="mb-8">
+                        <div className="flex justify-between items-end mb-2">
+                          <h4 className="font-bold text-lg text-slate-800 dark:text-white">Overall Progress</h4>
+                          <span className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                            {studentProgressData[progressSubject === 'BM' ? 'bm' : 'math']?.length || 0} / {progressSubject === 'BM' ? KEMAHIRAN_BM.length : KEMAHIRAN_MATH.length}
+                          </span>
+                        </div>
+                        <RetroProgressBar 
+                            progress={
+                              ((studentProgressData[progressSubject === 'BM' ? 'bm' : 'math']?.length || 0) / 
+                              (progressSubject === 'BM' ? KEMAHIRAN_BM.length : KEMAHIRAN_MATH.length)) * 100
+                            } 
+                        />
+                      </div>
+
+                      {/* Skills Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {(progressSubject === 'BM' ? KEMAHIRAN_BM : KEMAHIRAN_MATH).map((skill, index) => {
+                            const skillIndex = index + 1;
+                            const subjectKey = progressSubject === 'BM' ? 'bm' : 'math';
+                            const isCompleted = studentProgressData[subjectKey]?.includes(skillIndex);
+                            
+                            return (
+                              <div 
+                                key={index} 
+                                onClick={() => { if(role === 'admin') toggleSkill(skillIndex); }}
+                                className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all duration-200 ${isCompleted ? (progressSubject === 'BM' ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800 shadow-sm' : 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 shadow-sm') : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-500'}`}
+                              >
+                                <div className={`w-6 h-6 rounded-md flex items-center justify-center border transition-colors ${isCompleted ? (progressSubject === 'BM' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-emerald-600 border-emerald-600 text-white') : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600'}`}>
+                                    {isCompleted && <Check size={16} strokeWidth={3} />}
+                                </div>
+                                <span className={`text-sm font-medium ${isCompleted ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>{skill}</span>
+                              </div>
+                            );
+                        })}
+                      </div>
+                      
+                      {role === 'admin' && (
+                        <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700 flex justify-end">
+                          <button onClick={handleProgressUpdate} className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95">
+                            <Save size={18} /> Save Progress
+                          </button>
+                        </div>
+                      )}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 md:p-12 text-center">
+                    <div className="max-w-2xl mx-auto">
+                      <div className="bg-indigo-50 dark:bg-indigo-900/50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <TrendingUp className="text-indigo-600 dark:text-indigo-400 w-8 h-8" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Student Progress Tracker</h2>
+                      <p className="text-slate-500 dark:text-slate-400 mb-8">Select a student from the list below to view or update their mastery of skills (Kemahiran).</p>
+                      
+                      {/* Filters */}
+                      <div className="flex flex-col sm:flex-row gap-3 w-full mb-4">
+                          <div className="relative group flex-1">
+                            <select className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 dark:text-white font-bold text-sm appearance-none" value={profileYearFilter} onChange={(e) => setProfileYearFilter(e.target.value)}>
+                              <option value="All">Filter: All Years</option>
+                              {availableYears.filter(y => y !== 'All').map(y => <option key={y} value={y}>{`Tahun ${y}`}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none" />
+                          </div>
+                          <div className="relative group flex-1">
+                            <select className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 dark:text-white font-bold text-sm appearance-none" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+                              <option value="All">Filter: All Classes</option>
+                              {availableClasses.filter(c => c !== 'All').map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none" />
+                          </div>
+                          <div className="relative group flex-1">
+                            <select className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 dark:text-white font-bold text-sm appearance-none" value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
+                              <option value="All">Semua Subjek</option>
+                              {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none" />
+                          </div>
+                      </div>
+
+                      <div className="relative mb-6">
+                        <Search className="absolute left-4 top-3.5 text-slate-400 w-5 h-5" />
+                        <input 
+                          type="text" 
+                          placeholder="Search student name..." 
+                          className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-900 dark:text-white dark:placeholder-slate-400"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                        {filteredStudents.map(student => (
+                          <button 
+                            key={student.id}
+                            onClick={() => {
+                                setSelectedStudentForProgress(student);
+                                setStudentProgressData(student.progress || { bm: [], math: [] });
+                                if ((student.subject || '').includes('Matematik') && !(student.subject || '').includes('BM')) {
+                                  setProgressSubject('MATH');
+                                } else {
+                                  setProgressSubject('BM');
+                                }
+                            }}
+                            className="w-full flex items-center gap-3 p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl hover:border-indigo-200 dark:hover:border-indigo-500 hover:shadow-md transition-all text-left group"
+                          >
+                              <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-10 h-10" />
+                              <div>
+                                <h4 className="font-bold text-slate-800 dark:text-white group-hover:text-indigo-700 dark:group-hover:text-indigo-400 transition-colors">{student.name}</h4>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{student.className}</p>
+                              </div>
+                              <ArrowRight size={16} className="ml-auto text-slate-300 dark:text-slate-600 group-hover:text-indigo-400" />
+                          </button>
+                        ))}
+                        {filteredStudents.length === 0 && <p className="text-slate-400 text-sm py-4">No students found matching your search.</p>}
+                      </div>
+                    </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STATS VIEW */}
+          {currentSection === 'stats' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                  <Filter size={20} className="text-indigo-500" /> Filter Database
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="relative">
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Year (Tahun)</label>
+                    <select className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 dark:text-white font-medium appearance-none" value={statsFilters.year} onChange={(e) => setStatsFilters(prev => ({...prev, year: e.target.value}))}>
+                      <option value="All">Semua Tahun</option>
+                      {availableYears.filter(y=>y!=='All').map(y => <option key={y} value={y}>{`Tahun ${y}`}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-9 text-slate-400 w-4 h-4 pointer-events-none" />
+                  </div>
+                  <div className="relative">
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Gender</label>
+                    <select className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 dark:text-white font-medium appearance-none" value={statsFilters.gender} onChange={(e) => setStatsFilters(prev => ({...prev, gender: e.target.value}))}>
+                      <option value="All">Semua Jantina</option>
+                      <option value="Lelaki">Lelaki</option>
+                      <option value="Perempuan">Perempuan</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-9 text-slate-400 w-4 h-4 pointer-events-none" />
+                  </div>
+                  <div className="relative">
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Subject</label>
+                    <select className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 dark:text-white font-medium appearance-none" value={statsFilters.subject} onChange={(e) => setStatsFilters(prev => ({...prev, subject: e.target.value}))}>
+                      <option value="All">Semua Subjek</option>
+                      {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-9 text-slate-400 w-4 h-4 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+              <div className="bg-orange-50 dark:bg-orange-900/20 p-8 rounded-2xl border border-orange-100 dark:border-orange-800/50 flex items-center justify-between shadow-sm">
+                <div>
+                  <p className="text-sm text-orange-600 dark:text-orange-400 font-bold uppercase tracking-wider">Students Found (Pemulihan Only)</p>
+                  <h2 className="text-5xl font-extrabold text-orange-900 dark:text-orange-300 mt-1 tracking-tight">{filteredStudents.length}</h2>
+                </div>
+                <div className="bg-orange-100 dark:bg-orange-900/50 p-4 rounded-2xl">
+                  <PieChart className="text-orange-500 w-12 h-12" />
+                </div>
+              </div>
+              {filteredStudents.length > 0 && (
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto w-full">
+                  <table className="w-full text-left text-sm whitespace-nowrap md:whitespace-normal">
+                    <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
+                      <tr>
+                        <th className="px-4 py-3 md:px-6 md:py-4 font-bold text-slate-600 dark:text-slate-300">Name</th>
+                        <th className="px-4 py-3 md:px-6 md:py-4 font-bold text-slate-600 dark:text-slate-300">Gender</th>
+                        <th className="px-4 py-3 md:px-6 md:py-4 font-bold text-slate-600 dark:text-slate-300">Class</th>
+                        <th className="px-4 py-3 md:px-6 md:py-4 font-bold text-slate-600 dark:text-slate-300">Subject</th>
+                        <th className="px-4 py-3 md:px-6 md:py-4 font-bold text-slate-600 dark:text-slate-300">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
+                      {filteredStudents.map(student => (
+                        <tr key={student.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/50 transition-colors">
+                          <td className="px-4 py-3 md:px-6 md:py-4 font-bold text-slate-800 dark:text-white">{student.name}</td>
+                          <td className="px-4 py-3 md:px-6 md:py-4 text-slate-500 dark:text-slate-400">{student.gender || 'Lelaki'}</td>
+                          <td className="px-4 py-3 md:px-6 md:py-4 text-slate-500 font-mono text-xs">
+                            <span className="bg-slate-100 dark:bg-slate-700 dark:text-slate-300 rounded px-2 py-1">{student.className}</span>
+                          </td>
+                          <td className="px-4 py-3 md:px-6 md:py-4 text-slate-500 dark:text-slate-400">{student.subject}</td>
+                          <td className="px-4 py-3 md:px-6 md:py-4">
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${student.status === 'Lulus' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400'}`}>
+                              {student.status || 'Active'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* MBK VIEW */}
+          {currentSection === 'mbk' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <h2 className="text-2xl font-extrabold text-indigo-900 dark:text-indigo-400 tracking-tight">Senarai Murid MBK & OKU</h2>
+                
+                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-center">
+                  
+                  {/* Custom Filter for MBK/OKU Only */}
+                  <select 
+                    className="w-full sm:w-auto px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-sm text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none appearance-none"
+                    value={mbkTypeFilter}
+                    onChange={(e) => setMbkTypeFilter(e.target.value)}
+                  >
+                    <option value="All">Semua Kategori (MBK + OKU)</option>
+                    <option value="MBK">MBK Sahaja</option>
+                    <option value="OKU">OKU Sahaja</option>
+                  </select>
+
+                  {role === 'admin' && (
+                    <button onClick={openAdd} className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white px-5 py-2.5 rounded-xl shadow-md shadow-indigo-200 dark:shadow-none transition-all font-bold text-sm">
+                      <Plus size={18} strokeWidth={2.5} /> Add Student
+                    </button>
+                  )}
+                  <button onClick={exportToExcel} className="w-full sm:w-auto flex items-center justify-center gap-2 text-sm text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold bg-white dark:bg-slate-800 px-5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
+                    <Download size={18} /> Export Excel
+                  </button>
+                </div>
+              </div>
+
+              {loading ? (
+                <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-100 border-t-indigo-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading database...</p></div>
+              ) : filteredStudents.length === 0 ? (
+                <div className="text-center py-24 bg-white dark:bg-slate-800 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 shadow-sm">
+                  <div className="bg-slate-50 dark:bg-slate-700 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6"><Accessibility className="text-slate-300 dark:text-slate-500 w-10 h-10" /></div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No MBK students found</h3>
+                  <p className="text-slate-500 dark:text-slate-400">Currently showing Year 1 to Year 6 only.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                  {filteredStudents.map(student => {
+                    const year = calculateSchoolYearFromIC(student.ic);
+                    return (
+                    <div key={student.id} className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm hover:shadow-xl border border-slate-100 dark:border-slate-700 transition-all duration-300 hover:-translate-y-1 relative group overflow-hidden flex flex-col">
+                      <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
+                      
+                      {/* Desktop View */}
+                      <div className="hidden sm:flex flex-col items-center p-6 gap-4">
+                        <div className="w-full flex justify-between items-start">
+                          <div className="w-8"></div> {/* Spacer */}
+                          <Avatar name={student.name} color={student.color || 'bg-indigo-500'} photoUrl={student.photoUrl} size="w-24 h-24" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+                          <div className="w-8">
+                            {role === 'admin' && (
+                              <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-slate-800/90 p-1 rounded-lg backdrop-blur-sm border border-slate-100 dark:border-slate-700">
+                                <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded transition-colors"><Edit2 size={14} /></button>
+                                <button onClick={() => confirmDelete(student)} className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded transition-colors"><Trash2 size={14} /></button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-center w-full">
+                          <h3 className="font-bold text-lg text-slate-900 dark:text-white leading-tight mb-2">{student.name}</h3>
+                          <div className="flex items-center justify-center gap-2 mb-3"><CreditCard size={16} className="text-slate-400" /><span className="font-bold text-slate-700 dark:text-slate-300 tracking-wide font-mono">{student.ic}</span></div>
+                          <div className="space-y-2">
+                            <div className="bg-indigo-50 dark:bg-indigo-900/30 p-2 rounded-lg text-sm font-medium text-indigo-900 dark:text-indigo-200">{year < 1 ? 'Pra-sekolah' : `Tahun ${year}`}</div>
+                            <div className="flex items-center justify-center gap-2 text-sm text-slate-600 dark:text-slate-400 font-medium">
+                              {student.gender} • <span className={`px-2 py-0.5 rounded text-xs font-bold ${student.mbkType === 'OKU' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>{student.mbkType || 'MBK'}</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Remarks Section */}
+                        {student.remarks && (
+                          <div className="w-full mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800/50 rounded-lg flex items-start gap-2 text-left">
+                            <MessageSquare size={16} className="text-yellow-600 dark:text-yellow-500 mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-slate-700 dark:text-slate-300 italic">{student.remarks}</p>
+                          </div>
+                        )}
+
+                        <div className="mt-2 w-full pt-4 border-t border-slate-100 dark:border-slate-700 flex gap-2">
+                          <button onClick={() => window.open(student.docLink, '_blank')} disabled={!student.docLink} className={`flex-1 flex items-center justify-center gap-2 text-sm font-bold text-white py-2.5 rounded-xl transition-all shadow-sm active:scale-95 ${student.docLink ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed text-slate-500'}`} title={student.docLink ? 'Open Document' : 'No document linked'}>
+                            <FileText size={16} /> Docs
+                          </button>
+                          {student.mbkType === 'OKU' && student.qrCodeUrl && (
+                            <button onClick={() => setFullScreenImage(student.qrCodeUrl)} className="flex-1 flex items-center justify-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 py-2.5 rounded-xl transition-all shadow-sm">
+                              <QrCode size={16} /> Show QR
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Mobile View - Compact Side by Side */}
+                      <div className="sm:hidden flex flex-row items-start p-3 gap-3 relative z-10">
+                        <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-indigo-500 to-purple-500"></div>
+                        <div className="flex flex-col items-center gap-2">
+                          <Avatar name={student.name} color={student.color || 'bg-indigo-500'} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+                          
+                          {role === 'admin' && (
+                            <div className="grid grid-cols-2 gap-1 w-[70px]">
+                                <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 bg-slate-50 dark:bg-slate-700 dark:border-slate-600 rounded border border-slate-100 shadow-sm flex items-center justify-center"><Edit2 size={12} /></button>
+                                <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 dark:bg-red-900/30 dark:border-red-800 rounded border border-red-100 shadow-sm flex items-center justify-center"><Trash2 size={12} /></button>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex-1 min-w-0 text-left">
+                          <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1 break-words">{student.name}</h3>
+                          <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-0.5">{year < 1 ? 'Pra-sekolah' : `Tahun ${year}`}</div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-1">
+                            {student.gender || 'Lelaki'}
+                            <span className={`px-1.5 py-0.5 rounded border text-[9px] ${student.mbkType === 'OKU' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800'}`}>{student.mbkType || 'MBK'}</span>
+                          </div>
+                          
+                          {/* Remarks Section Compact */}
+                          {student.remarks && (
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 italic bg-yellow-50 dark:bg-yellow-900/20 px-2 py-1 rounded border border-yellow-100 dark:border-yellow-800/50 flex items-start gap-1 mt-1">
+                                <MessageSquare size={10} className="mt-0.5 flex-shrink-0 text-yellow-500" />
+                                <span className="line-clamp-2">{student.remarks}</span>
+                            </div>
+                          )}
+
+                          <div className="mt-2 flex flex-col gap-1">
+                            <button onClick={() => window.open(student.docLink, '_blank')} disabled={!student.docLink} className={`flex items-center justify-center gap-1 text-[10px] font-bold py-1 px-2 rounded transition-all border ${student.docLink ? 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800' : 'bg-slate-50 text-slate-400 border-slate-100 dark:bg-slate-800 dark:border-slate-700 cursor-not-allowed'}`} title={student.docLink ? 'Open Document' : 'No document linked'}>
+                              <FileText size={12} /> {student.docLink ? 'Docs' : 'No Docs'}
+                            </button>
+                            {student.mbkType === 'OKU' && student.qrCodeUrl && (
+                              <button onClick={() => setFullScreenImage(student.qrCodeUrl)} className="flex items-center justify-center gap-1 text-[10px] font-bold py-1 px-2 rounded transition-all border bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
+                                <QrCode size={12} /> Show QR
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {student.isNewStudent && (
+                        <div className="absolute top-2 left-3 sm:top-2 sm:left-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
+                          <Sparkles size={8} /> NEW
+                        </div>
+                      )}
+                    </div>
+                  )})}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* LULUS VIEW */}
+          {currentSection === 'lulus' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-2xl font-extrabold text-purple-900 dark:text-purple-400 tracking-tight">Graduates (Lulus)</h2>
+                <div className="flex gap-2 items-center">
+                  <button onClick={exportToExcel} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-white font-bold bg-white dark:bg-slate-800 px-5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"><Download size={18} /> Export Excel</button>
+                </div>
+              </div>
+              {loading ? (
+                <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-100 border-t-purple-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading...</p></div>
+              ) : Object.keys(groupedLulusStudents).length === 0 ? (
+                <div className="text-center py-24 bg-white dark:bg-slate-800 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
+                  <div className="bg-purple-50 dark:bg-slate-700 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6"><CheckCircle className="text-purple-300 dark:text-slate-500 w-10 h-10" /></div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No graduates yet</h3>
+                  <p className="text-slate-500 dark:text-slate-400">Students marked as 'Lulus' will appear here.</p>
+                </div>
+              ) : (
+                <div className="space-y-10">
+                  {Object.keys(groupedLulusStudents).sort().map(groupKey => (
+                    <div key={groupKey} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                      <div className="bg-purple-50/50 dark:bg-purple-900/30 px-8 py-4 border-b border-purple-100 dark:border-purple-800 flex items-center justify-between backdrop-blur-sm">
+                        <h3 className="font-extrabold text-purple-900 dark:text-purple-400 text-lg flex items-center gap-2"><Calendar className="text-purple-500" size={20} />{groupKey}</h3>
+                        <span className="text-xs font-bold bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-400 px-3 py-1.5 rounded-lg border border-purple-100 dark:border-purple-800 shadow-sm">{groupedLulusStudents[groupKey].students.length} Students</span>
+                      </div>
+                      <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {groupedLulusStudents[groupKey].students.map(student => (
+                          <div key={student.id} className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col">
+                            {/* Desktop View */}
+                            <div className="hidden sm:block">
+                                <div className="flex items-center gap-4 mb-4">
+                                  <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+                                  <div>
+                                    <h4 className="font-bold text-slate-900 dark:text-white text-base leading-tight mb-1">{student.name}</h4>
+                                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">{student.gender}</span>
+                                  </div>
+                                </div>
+                                
+                                <div className="mt-auto pt-4 border-t border-slate-50 dark:border-slate-700 flex flex-col gap-2">
+                                  <div className="flex items-center justify-between text-xs"><span className="font-bold text-slate-400 uppercase tracking-wider">Subject</span><span className="font-semibold text-slate-700 dark:text-slate-300 text-right">{student.subject}</span></div>
+                                  <div className="flex items-center justify-between text-xs"><span className="font-bold text-slate-400 uppercase tracking-wider">Graduated</span><span className="font-bold text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-2 py-1 rounded-md border border-purple-100 dark:border-purple-800">{student.graduationDate}</span></div>
+                                </div>
+
+                                {role === 'admin' && (
+                                  <div className="hidden sm:flex absolute top-4 right-4 flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-slate-800/90 p-1 rounded-lg backdrop-blur-sm shadow-sm border border-slate-100 dark:border-slate-700">
+                                      <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 rounded transition-colors" title="Revert"><RotateCcw size={16} /></button>
+                                      <button onClick={() => confirmDelete(student)} className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded transition-colors" title="Delete"><Trash2 size={16} /></button>
+                                      <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded transition-colors" title="Edit"><Edit2 size={16} /></button>
+                                  </div>
+                                )}
+                            </div>
+
+                            {/* Mobile View - Compact Side by Side */}
+                            <div className="sm:hidden flex flex-row items-start p-3 gap-3 relative z-10">
+                              <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-purple-400 to-purple-600"></div>
                               
                               <div className="flex flex-col items-center gap-2">
-                                <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
-                                {/* Mobile Admin Buttons - 2 Cols under Avatar */}
-                                {role === 'admin' && (
-                                    <div className="grid grid-cols-2 gap-1 w-[70px]">
-                                       <button onClick={() => openNotesModal(student)} className={`p-1 rounded border shadow-sm flex items-center justify-center ${isDarkMode ? 'text-amber-500 bg-amber-900/30 border-amber-800' : 'text-amber-500 bg-amber-50 border-amber-100'}`}><StickyNote size={12} /></button>
-                                       <button onClick={() => openAttendanceModal(student)} className={`p-1 rounded border shadow-sm flex items-center justify-center ${isDarkMode ? 'text-blue-500 bg-blue-900/30 border-blue-800' : 'text-blue-500 bg-blue-50 border-blue-100'}`}><Calendar size={12} /></button>
-                                       <button onClick={() => openEdit(student)} className={`p-1 rounded border shadow-sm flex items-center justify-center ${isDarkMode ? 'text-slate-400 bg-slate-700 border-slate-600' : 'text-slate-500 bg-slate-50 border-slate-100'}`}><Edit2 size={12} /></button>
-                                       <button onClick={() => toggleStudentStatus(student)} className={`p-1 rounded border shadow-sm flex items-center justify-center ${isDarkMode ? 'text-purple-500 bg-purple-900/30 border-purple-800' : 'text-purple-500 bg-purple-50 border-purple-100'}`}><ArrowRight size={12} /></button>
-                                       <button onClick={() => confirmDelete(student)} className={`p-1 rounded border shadow-sm flex items-center justify-center col-span-2 ${isDarkMode ? 'text-red-500 bg-red-900/30 border-red-800' : 'text-red-500 bg-red-50 border-red-100'}`}><Trash2 size={12} /></button>
-                                    </div>
-                                )}
+                                  <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+                                  {/* Mobile Admin Buttons - 2 Cols */}
+                                  {role === 'admin' && (
+                                      <div className="grid grid-cols-2 gap-1 w-[70px]">
+                                        <button onClick={() => openEdit(student)} className="p-1 text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700 border border-slate-100 dark:border-slate-600 rounded shadow-sm flex items-center justify-center"><Edit2 size={12} /></button>
+                                        <button onClick={() => toggleStudentStatus(student)} className="p-1 text-purple-500 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 rounded shadow-sm flex items-center justify-center"><RotateCcw size={12} /></button>
+                                        <button onClick={() => confirmDelete(student)} className="p-1 text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded shadow-sm flex items-center justify-center col-span-2"><Trash2 size={12} /></button>
+                                      </div>
+                                  )}
                               </div>
                               
                               <div className="flex-1 min-w-0 text-left">
-                                <h3 className={`font-bold text-sm leading-tight mb-1 break-words ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{student.name}</h3>
-                                <div className={`text-xs font-medium mb-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{className}</div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">{student.gender || 'Lelaki'}</p>
-                                
-                                <div className={`inline-block items-center justify-center text-[10px] font-bold text-white px-2 py-0.5 rounded-md uppercase tracking-wide mb-2 shadow-sm ${getSubjectBadgeColor(student.subject)}`}>{student.subject}</div>
-
-                                <div className="flex flex-col gap-1 w-full mt-1">
-                                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase">
-                                    <span>Attendance</span>
-                                    <span className={studentStats.percent >= 75 ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600') : (isDarkMode ? 'text-amber-400' : 'text-amber-600')}>{studentStats.percent}%</span>
-                                  </div>
-                                  <div className={`w-full rounded-full h-1.5 overflow-hidden ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'}`}><div className={`h-full rounded-full ${studentStats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${studentStats.percent}%` }}></div></div>
-                                </div>
+                                  <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1 break-words">{student.name}</h3>
+                                  <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-0.5">{student.subject}</div>
+                                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">{student.gender}</div>
+                                  <div className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold bg-purple-50 dark:bg-purple-900/30 px-1.5 py-0.5 rounded border border-purple-100 dark:border-purple-800 inline-block mt-1">Grad: {student.graduationDate}</div>
                               </div>
-                          </div>
-
-                          {student.isNewStudent && (
-                            <div className="absolute top-2 left-3 sm:left-auto sm:right-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
-                              <span className="w-1.5 h-1.5 bg-white rounded-full"></span> NEW
-                            </div>
-                          )}
-                        </div>
-                      )})}
-                    </div>
-                  </div>
-                )})}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* PLAN VIEW */}
-        {currentSection === 'plan' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="flex justify-between items-center mb-8">
-              <h2 className={`text-2xl font-extrabold tracking-tight ${isDarkMode ? 'text-blue-400' : 'text-blue-900'}`}>PLaN (Thn 4-6)</h2>
-              <div className="flex gap-2 items-center">
-                <button onClick={exportToExcel} className={`flex items-center gap-2 text-sm font-bold px-5 py-2.5 border rounded-xl transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Download size={18} /> Export Excel</button>
-              </div>
-            </div>
-            {loading ? (
-              <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading...</p></div>
-            ) : Object.keys(groupedPlanStudents).length === 0 ? (
-               <div className={`text-center py-24 rounded-3xl border border-dashed shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`}><div className={`rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6 ${isDarkMode ? 'bg-slate-700' : 'bg-blue-50'}`}><BookOpenCheck className={`${isDarkMode ? 'text-slate-500' : 'text-blue-300'} w-10 h-10`} /></div><h3 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>No PLaN students</h3><p className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Students in Year 4, 5, and 6 appear here automatically.</p></div>
-            ) : (
-               <div className="space-y-10">
-                {Object.keys(groupedPlanStudents).sort().map(groupKey => (
-                   <div key={groupKey} className={`rounded-3xl border overflow-hidden shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                    <div className={`px-8 py-4 border-b flex items-center justify-between ${isDarkMode ? 'bg-blue-900/30 border-blue-800' : 'bg-blue-50/50 border-blue-100'}`}>
-                      <h3 className={`font-extrabold text-lg flex items-center gap-2 ${isDarkMode ? 'text-blue-400' : 'text-blue-900'}`}><BookOpenCheck className="text-blue-500" size={20} />{groupKey}</h3>
-                      <span className={`text-xs font-bold px-3 py-1.5 rounded-lg border shadow-sm ${isDarkMode ? 'bg-slate-900 text-blue-400 border-blue-800' : 'bg-white text-blue-700 border-blue-100'}`}>{groupedPlanStudents[groupKey].length} Students</span>
-                    </div>
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                       {groupedPlanStudents[groupKey].map(student => (
-                         <div key={student.id} className={`rounded-2xl shadow-sm hover:shadow-lg border transition-all duration-300 hover:-translate-y-1 flex flex-col relative group ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-                           {/* Desktop View */}
-                           <div className="hidden sm:flex flex-col items-center p-5 gap-4">
-                             <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
-                             <div className="text-center">
-                                <h4 className={`font-bold text-base leading-tight mb-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{student.name}</h4>
-                                <span className={`text-xs font-semibold px-2 py-0.5 rounded ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>{student.gender}</span>
-                             </div>
-                             <div className={`mt-auto pt-4 border-t flex flex-col gap-2 w-full ${isDarkMode ? 'border-slate-700' : 'border-slate-50'}`}>
-                                <div className="flex items-center justify-between text-xs"><span className="font-bold text-slate-400 uppercase tracking-wider">Subject</span><span className={`font-semibold text-right ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{student.subject}</span></div>
-                             </div>
-
-                             {role === 'admin' && (
-                                <div className={`absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg backdrop-blur-sm shadow-sm border ${isDarkMode ? 'bg-slate-800/90 border-slate-700' : 'bg-white/90 border-slate-100'}`}>
-                                   <button onClick={() => openNotesModal(student)} className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-amber-500 hover:bg-slate-700' : 'text-amber-500 hover:bg-amber-50'}`}><StickyNote size={16} /></button>
-                                   <button onClick={() => confirmDelete(student)} className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-red-400 hover:bg-slate-700' : 'text-red-400 hover:bg-red-50'}`}><Trash2 size={16} /></button>
-                                   <button onClick={() => openEdit(student)} className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-400 hover:text-blue-600'}`}><Edit2 size={16} /></button>
-                                </div>
-                             )}
-                           </div>
-
-                           {/* Mobile View - Compact Side by Side */}
-                           <div className="sm:hidden flex flex-row items-start p-3 gap-3 relative z-10">
-                             <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-blue-400 to-blue-600"></div>
-                             
-                             <div className="flex flex-col items-center gap-2">
-                                <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
-                                {/* Mobile Admin Buttons - 2 Cols under Avatar */}
-                                {role === 'admin' && (
-                                    <div className="grid grid-cols-2 gap-1 w-[70px]">
-                                       <button onClick={() => openNotesModal(student)} className={`p-1.5 rounded border shadow-sm flex items-center justify-center ${isDarkMode ? 'text-amber-500 bg-amber-900/30 border-amber-800' : 'text-amber-500 bg-amber-50 border-amber-100'}`}><StickyNote size={12} /></button>
-                                       <button onClick={() => openEdit(student)} className={`p-1.5 rounded border shadow-sm flex items-center justify-center ${isDarkMode ? 'text-slate-400 bg-slate-700 border-slate-600' : 'text-slate-500 bg-slate-50 border-slate-100'}`}><Edit2 size={12} /></button>
-                                       <button onClick={() => confirmDelete(student)} className={`p-1.5 rounded border shadow-sm flex items-center justify-center col-span-2 ${isDarkMode ? 'text-red-500 bg-red-900/30 border-red-800' : 'text-red-500 bg-red-50 border-red-100'}`}><Trash2 size={12} /></button>
-                                    </div>
-                                )}
-                             </div>
-                             
-                             <div className="flex-1 min-w-0 text-left">
-                                <h3 className={`font-bold text-sm leading-tight mb-1 break-words ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{student.name}</h3>
-                                <div className={`text-xs font-medium mb-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{student.subject}</div>
-                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">{student.gender}</div>
-                             </div>
-                           </div>
-                            
-                           {student.isNewStudent && (
-                            <div className="absolute top-2 left-3 sm:top-2 sm:right-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
-                              <span className="w-1.5 h-1.5 bg-white rounded-full"></span> NEW
-                            </div>
-                          )}
-                         </div>
-                       ))}
-                    </div>
-                   </div>
-                ))}
-               </div>
-            )}
-          </div>
-        )}
-
-        {/* LULUS VIEW */}
-        {currentSection === 'lulus' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="flex justify-between items-center mb-8">
-              <h2 className={`text-2xl font-extrabold tracking-tight ${isDarkMode ? 'text-purple-400' : 'text-purple-900'}`}>Graduates (Lulus)</h2>
-              <div className="flex gap-2 items-center">
-                <button onClick={exportToExcel} className={`flex items-center gap-2 text-sm font-bold px-5 py-2.5 border rounded-xl transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Download size={18} /> Export Excel</button>
-              </div>
-            </div>
-            {loading ? (
-              <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-100 border-t-purple-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading...</p></div>
-            ) : Object.keys(groupedLulusStudents).length === 0 ? (
-              <div className={`text-center py-24 rounded-3xl border border-dashed shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`}>
-                <div className={`rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6 ${isDarkMode ? 'bg-slate-700' : 'bg-purple-50'}`}>
-                  <CheckCircle className={`${isDarkMode ? 'text-slate-500' : 'text-purple-300'} w-10 h-10`} />
-                </div>
-                <h3 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>No graduates yet</h3>
-                <p className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Students marked as 'Lulus' will appear here.</p>
-              </div>
-            ) : (
-              <div className="space-y-10">
-                {Object.keys(groupedLulusStudents).sort().map(groupKey => (
-                  <div key={groupKey} className={`rounded-3xl border overflow-hidden shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                    <div className={`px-8 py-4 border-b flex items-center justify-between ${isDarkMode ? 'bg-purple-900/30 border-purple-800' : 'bg-purple-50/50 border-purple-100'}`}>
-                      <h3 className={`font-extrabold text-lg flex items-center gap-2 ${isDarkMode ? 'text-purple-400' : 'text-purple-900'}`}>
-                        <Calendar className="text-purple-500" size={20} />
-                        {groupKey}
-                      </h3>
-                      <span className={`text-xs font-bold px-3 py-1.5 rounded-lg border shadow-sm ${isDarkMode ? 'bg-slate-900 text-purple-400 border-purple-800' : 'bg-white text-purple-700 border-purple-100'}`}>
-                        {groupedLulusStudents[groupKey].students.length} Students
-                      </span>
-                    </div>
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {groupedLulusStudents[groupKey].students.map(student => (
-                        <div key={student.id} className={`border rounded-2xl p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`}>
-                          {/* Desktop View */}
-                          <div className="hidden sm:block">
-                              <div className="flex items-center gap-4 mb-4">
-                                <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
-                                <div>
-                                  <h4 className={`font-bold text-base leading-tight mb-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{student.name}</h4>
-                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>{student.gender}</span>
-                                </div>
-                              </div>
-                              
-                              <div className={`mt-auto pt-4 border-t flex flex-col gap-2 ${isDarkMode ? 'border-slate-700' : 'border-slate-50'}`}>
-                                 <div className="flex items-center justify-between text-xs">
-                                   <span className="font-bold text-slate-400 uppercase tracking-wider">Subject</span>
-                                   <span className={`font-semibold text-right ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{student.subject}</span>
-                                 </div>
-                                 <div className="flex items-center justify-between text-xs">
-                                   <span className="font-bold text-slate-400 uppercase tracking-wider">Graduated</span>
-                                   <span className={`font-bold px-2 py-1 rounded-md border ${isDarkMode ? 'bg-purple-900/30 text-purple-400 border-purple-800' : 'bg-purple-50 text-purple-700 border-purple-100'}`}>
-                                     {student.graduationDate}
-                                   </span>
-                                 </div>
-                              </div>
-
-                              {role === 'admin' && (
-                                <div className={`hidden sm:flex absolute top-4 right-4 gap-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg backdrop-blur-sm shadow-sm border ${isDarkMode ? 'bg-slate-800/90 border-slate-700' : 'bg-white/90 border-slate-100'}`}>
-                                    <button onClick={() => toggleStudentStatus(student)} className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-slate-400 hover:text-purple-400 hover:bg-slate-700' : 'text-slate-400 hover:text-purple-600'}`} title="Revert"><RotateCcw size={16} /></button>
-                                    <button onClick={() => confirmDelete(student)} className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-slate-400 hover:text-red-400 hover:bg-slate-700' : 'text-slate-400 hover:text-red-600'}`} title="Delete"><Trash2 size={16} /></button>
-                                    <button onClick={() => openEdit(student)} className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700' : 'text-slate-400 hover:text-blue-600'}`} title="Edit"><Edit2 size={16} /></button>
-                                </div>
-                              )}
-                          </div>
-
-                          {/* Mobile View - Compact Side by Side */}
-                          <div className="sm:hidden flex flex-row items-start p-3 gap-3 relative z-10">
-                            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-purple-400 to-purple-600"></div>
-                            
-                            <div className="flex flex-col items-center gap-2">
-                                <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
-                                {/* Mobile Admin Buttons - 2 Cols */}
-                                {role === 'admin' && (
-                                    <div className="grid grid-cols-2 gap-1 w-[70px]">
-                                       <button onClick={() => openEdit(student)} className={`p-1 rounded border shadow-sm flex items-center justify-center ${isDarkMode ? 'text-slate-400 bg-slate-700 border-slate-600' : 'text-slate-500 bg-slate-50 border-slate-100'}`}><Edit2 size={12} /></button>
-                                       <button onClick={() => toggleStudentStatus(student)} className={`p-1 rounded border shadow-sm flex items-center justify-center ${isDarkMode ? 'text-purple-500 bg-purple-900/30 border-purple-800' : 'text-purple-500 bg-purple-50 border-purple-100'}`}><RotateCcw size={12} /></button>
-                                       <button onClick={() => confirmDelete(student)} className={`p-1 rounded border shadow-sm flex items-center justify-center col-span-2 ${isDarkMode ? 'text-red-500 bg-red-900/30 border-red-800' : 'text-red-500 bg-red-50 border-red-100'}`}><Trash2 size={12} /></button>
-                                    </div>
-                                )}
                             </div>
                             
-                            <div className="flex-1 min-w-0 text-left">
-                                <h3 className={`font-bold text-sm leading-tight mb-1 break-words ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{student.name}</h3>
-                                <div className={`text-xs font-medium mb-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{student.subject}</div>
-                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">{student.gender}</div>
-                                <div className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border inline-block mt-1 ${isDarkMode ? 'text-purple-400 bg-purple-900/30 border-purple-800' : 'text-purple-600 bg-purple-50 border-purple-100'}`}>Grad: {student.graduationDate}</div>
-                            </div>
+                            {student.isNewStudent && (
+                              <div className="absolute top-2 left-3 sm:top-2 sm:left-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
+                                <span className="w-1.5 h-1.5 bg-white rounded-full"></span> NEW
+                              </div>
+                            )}
                           </div>
-                          
-                           {student.isNewStudent && (
-                            <div className="absolute top-2 left-3 sm:top-2 sm:left-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
-                              <span className="w-1.5 h-1.5 bg-white rounded-full"></span> NEW
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Image Adjuster Modal (Rendered at root level) */}
-        {rawImageSrc && (
-          <ImageAdjuster 
-            imageSrc={rawImageSrc}
-            onSave={handleCropSave}
-            onCancel={handleCropCancel}
-          />
-        )}
-
-        {/* Full Screen Image Viewer (Rendered at root level) */}
-        {fullScreenImage && (
-          <ImageViewer 
-            src={fullScreenImage}
-            onClose={() => setFullScreenImage(null)}
-          />
-        )}
-      </main>
-
-      {/* Fixed Bottom Navigation (Mobile Only) */}
-      <div className={`fixed bottom-0 left-0 w-full backdrop-blur-md border-t flex justify-around items-center z-50 sm:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] transition-colors duration-300 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200'}`}>
-         {[
-            { id: 'profile', label: 'Profile', icon: School },
-            { id: 'plan', label: 'PLaN', icon: BookOpenCheck },
-            { id: 'mbk', label: 'MBK', icon: Accessibility },
-            { id: 'lulus', label: 'Lulus', icon: GraduationCap },
-            { id: 'stats', label: 'Stats', icon: BarChart3 },
-            { id: 'progress', label: 'Progress', icon: TrendingUp }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              className={`flex flex-col items-center justify-center w-full py-3 transition-all duration-200 ${
-                currentSection === tab.id
-                  ? (isDarkMode ? 'text-indigo-400 bg-indigo-900/20' : 'text-indigo-600 bg-indigo-50/50')
-                  : (isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600')
-              }`}
-            >
-              <tab.icon size={20} strokeWidth={currentSection === tab.id ? 2.5 : 2} />
-              <span className="text-[10px] font-bold mt-1">{tab.label}</span>
-            </button>
-          ))}
-      </div>
-      
-      {/* Modals */}
-      <Modal isOpen={showAdminLogin} onClose={() => { setShowAdminLogin(false); setAdminPassword(''); setLoginError(''); }} title="Admin Login">
-            <form onSubmit={handleAdminLogin} className="space-y-4">
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Password</label>
-                  <input 
-                    type="password" 
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : (isDarkMode ? 'bg-slate-700 border-slate-600 text-white focus:ring-indigo-500' : 'border-gray-300 focus:ring-blue-500')}`} 
-                    value={adminPassword} 
-                    onChange={(e) => { setAdminPassword(e.target.value); setLoginError(''); }} 
-                    placeholder="Enter password..." 
-                    autoFocus 
-                  />
-                  {loginError && <p className="text-xs text-red-500 mt-1">{loginError}</p>}
-                </div>
-                <button type="submit" className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm">Authenticate</button>
-            </form>
-        </Modal>
-        <Modal isOpen={deleteConfirmation.isOpen} onClose={() => setDeleteConfirmation({ isOpen: false, studentId: null, studentName: '' })} title="Confirm Deletion">
-           <div className="flex flex-col items-center justify-center mb-6 text-center">
-             <div className={`p-4 rounded-full mb-4 ${isDarkMode ? 'bg-red-900/30' : 'bg-red-50'}`}>
-               <Trash2 className={`w-10 h-10 ${isDarkMode ? 'text-red-400' : 'text-red-600'}`} />
-             </div>
-             <h4 className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Delete Record?</h4>
-             <p className={isDarkMode ? 'text-slate-400' : 'text-gray-500'}>Are you sure you want to delete <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{deleteConfirmation.studentName}</span>? This action cannot be undone.</p>
-           </div>
-           <div className="flex gap-3">
-             <button onClick={() => setDeleteConfirmation({ isOpen: false, studentId: null, studentName: '' })} className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Cancel</button>
-             <button onClick={executeDelete} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 shadow-sm">Yes, Delete</button>
-           </div>
-        </Modal>
-        <Modal isOpen={moveConfirmation.isOpen} onClose={() => setMoveConfirmation({ isOpen: false, student: null, newStatus: '' })} title="Confirm Status Change">
-            <div className="flex flex-col items-center justify-center mb-6 text-center">
-              <div className={`p-4 rounded-full mb-4 ${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
-                <ArrowLeftRight className={`w-10 h-10 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-              </div>
-              <h4 className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Move Student?</h4>
-              <p className={`mb-4 ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>{moveConfirmation.newStatus === 'Lulus' ? `Mark ${moveConfirmation.student?.name} as "Lulus Pemulihan"?` : `Move ${moveConfirmation.student?.name} back to "Profile Murid Pemulihan"?`}</p>
-              {moveConfirmation.newStatus === 'Lulus' && (
-                <div className={`w-full text-left p-3 rounded-lg border ${isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-gray-50 border-gray-200'}`}>
-                  <label className={`block text-xs font-semibold uppercase mb-1 ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>Graduation Date</label>
-                  <div className="flex items-center gap-2">
-                    <Calendar size={16} className={isDarkMode ? 'text-slate-400' : 'text-gray-400'} />
-                    <input type="date" className={`bg-transparent border-none focus:ring-0 text-sm font-medium w-full p-0 ${isDarkMode ? 'text-white style-color-scheme-dark' : 'text-gray-900'}`} value={moveDate} onChange={(e) => setMoveDate(e.target.value)} />
-                  </div>
+                  ))}
                 </div>
               )}
             </div>
-            <div className="flex gap-3">
-              <button onClick={() => setMoveConfirmation({ isOpen: false, student: null, newStatus: '' })} className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Cancel</button>
-              <button onClick={executeMove} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm">Confirm</button>
-            </div>
-        </Modal>
-        <Modal isOpen={isNotesModalOpen} onClose={() => setIsNotesModalOpen(false)} title="Catatan Murid">
-            <div className="space-y-6">
-              <div className={`flex items-center gap-4 p-4 rounded-lg ${isDarkMode ? 'bg-amber-900/20' : 'bg-amber-50'}`}>
-                <Avatar name={selectedStudentForNotes?.name || ''} color={selectedStudentForNotes?.color || 'bg-blue-500'} photoUrl={selectedStudentForNotes?.photoUrl}/>
-                <div>
-                  <h4 className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedStudentForNotes?.name}</h4>
-                  <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>{selectedStudentForNotes?.className}</p>
+          )}
+
+          {/* PLAN VIEW */}
+          {currentSection === 'plan' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+               <div className="flex justify-between items-center mb-8">
+                <h2 className="text-2xl font-extrabold text-blue-900 dark:text-blue-400 tracking-tight">PLaN (Thn 4-6)</h2>
+                <div className="flex gap-2 items-center">
+                  <button onClick={exportToExcel} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-white font-bold bg-white dark:bg-slate-800 px-5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"><Download size={18} /> Export Excel</button>
                 </div>
               </div>
-              <form onSubmit={saveNote} className="space-y-3">
-                <div>
-                  <label className={`block text-xs font-semibold uppercase mb-1 ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>Date</label>
-                  <input type="date" required className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white style-color-scheme-dark' : 'border-gray-300'}`} value={noteForm.date} onChange={(e) => setNoteForm({...noteForm, date: e.target.value})}/>
-                </div>
-                <div>
-                  <label className={`block text-xs font-semibold uppercase mb-1 ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>Catatan (Note)</label>
-                  <textarea required rows="3" className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-gray-300'}`} value={noteForm.text} onChange={(e) => setNoteForm({...noteForm, text: e.target.value})} placeholder="Enter note details here..."></textarea>
-                </div>
-                <button type="submit" className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium shadow-sm transition-colors">{noteForm.id ? 'Update Note' : 'Add Note'}</button>
-              </form>
-              <div className={`border-t pt-4 ${isDarkMode ? 'border-slate-700' : 'border-gray-100'}`}>
-                <h5 className={`text-sm font-bold mb-3 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}><Clock size={16} /> History</h5>
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {selectedStudentForNotes?.notes && selectedStudentForNotes.notes.length > 0 ? (
-                    [...(selectedStudentForNotes.notes || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).map((note) => (
-                    <div key={note.id} className={`p-3 rounded-lg border relative group ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
-                      <div className="flex justify-between items-start mb-1">
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded border ${isDarkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-white text-gray-500 border-gray-200'}`}>{note.date}</span>
-                        <div className={`flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-gray-50'}`}>
-                          <button onClick={() => startEditNote(note)} className="text-blue-500 hover:text-blue-400"><Edit2 size={14} /></button>
-                          <button onClick={() => deleteNote(note.id)} className="text-red-500 hover:text-red-400"><Trash2 size={14} /></button>
-                        </div>
-                      </div>
-                      <p className={`text-sm whitespace-pre-wrap ${isDarkMode ? 'text-slate-300' : 'text-gray-800'}`}>{note.text}</p>
-                    </div>
-                  ))) : (<p className={`text-center text-sm py-4 ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>No notes recorded yet.</p>)}
-                </div>
-              </div>
-            </div>
-        </Modal>
-        <Modal isOpen={isAttendanceModalOpen} onClose={() => setIsAttendanceModalOpen(false)} title="Manage Attendance">
-            <div className="space-y-6">
-              <div className={`flex items-center gap-4 p-4 rounded-lg ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-gray-50'}`}>
-                <Avatar name={selectedStudentForAttendance?.name || ''} color={selectedStudentForAttendance?.color || 'bg-blue-500'} photoUrl={selectedStudentForAttendance?.photoUrl}/>
-                <div>
-                  <h4 className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedStudentForAttendance?.name}</h4>
-                  <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>{selectedStudentForAttendance?.className}</p>
-                </div>
-              </div>
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Mark for specific date</label>
-                <div className="flex gap-2">
-                  <input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white style-color-scheme-dark' : 'border-gray-300'}`}/>
-                  <button onClick={() => markAttendance('present')} className={`flex items-center gap-1 px-4 py-2 font-medium rounded-lg transition-colors ${isDarkMode ? 'bg-emerald-900/50 text-emerald-400 hover:bg-emerald-900' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'}`}><Check size={16} /> Present</button>
-                  <button onClick={() => markAttendance('absent')} className={`flex items-center gap-1 px-4 py-2 font-medium rounded-lg transition-colors ${isDarkMode ? 'bg-red-900/50 text-red-400 hover:bg-red-900' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}><X size={16} /> Absent</button>
-                </div>
-              </div>
-              <div>
-                <h5 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}><Clock size={14} /> Record History</h5>
-                <div className={`max-h-48 overflow-y-auto border rounded-lg divide-y ${isDarkMode ? 'border-slate-700 divide-slate-700' : 'border-gray-100 divide-gray-100'}`}>
-                  {selectedStudentForAttendance?.attendanceRecords?.length > 0 ? (
-                    [...(selectedStudentForAttendance.attendanceRecords || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).map((record, idx) => (
-                    <div key={idx} className={`flex justify-between items-center p-3 transition-colors ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}`}>
-                      <div className="text-sm"><span className={`font-medium ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>{record.date}</span></div>
-                      <div className="flex items-center gap-3">
-                        <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${record.status === 'present' ? (isDarkMode ? 'bg-emerald-900/50 text-emerald-400' : 'bg-emerald-100 text-emerald-700') : (isDarkMode ? 'bg-red-900/50 text-red-400' : 'bg-red-100 text-red-700')}`}>{record.status}</span>
-                        <button onClick={() => deleteAttendanceRecord(record)} className={`hover:text-red-500 transition-colors ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`} title="Delete entry"><Trash2 size={14} /></button>
-                      </div>
-                    </div>
-                  ))) : (<div className={`p-4 text-center text-sm ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>No records found.</div>)}
-                </div>
-              </div>
-            </div>
-        </Modal>
-        <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Student" : "Add New Student"}>
-            <form onSubmit={handleSave} className="space-y-4">
-              {!editingId && (
-                <div className={`flex p-1 rounded-lg mb-4 ${isDarkMode ? 'bg-slate-900' : 'bg-gray-100'}`}>
-                  <button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'pemulihan' ? (isDarkMode ? 'bg-slate-700 shadow-sm text-indigo-400' : 'bg-white shadow-sm text-indigo-600') : (isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-gray-500 hover:text-gray-700')}`} onClick={() => setFormData(prev => ({ ...prev, program: 'pemulihan' }))}>Profile Pemulihan</button>
-                  <button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'mbk' ? (isDarkMode ? 'bg-slate-700 shadow-sm text-indigo-400' : 'bg-white shadow-sm text-indigo-600') : (isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-gray-500 hover:text-gray-700')}`} onClick={() => setFormData(prev => ({ ...prev, program: 'mbk' }))}>Murid MBK & OKU</button>
-                </div>
-              )}
-              <div className={`flex flex-col items-center justify-center p-4 rounded-lg border-2 border-dashed transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-600 hover:border-indigo-500' : 'bg-gray-50 border-gray-200 hover:border-indigo-400'}`}>
-                <div className="mb-3"><Avatar name={formData.name || 'User'} color="bg-gray-300" photoUrl={formData.photoUrl} size="w-20 h-20"/></div>
-                <label className="cursor-pointer"><span className="flex items-center gap-2 text-sm font-medium text-indigo-500 hover:text-indigo-600"><Camera size={16} /> {formData.photoUrl ? 'Change Photo' : 'Upload Photo'}</span><input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'profile')} /></label>
-                <div className="flex items-center gap-3 mt-2">
-                  {formData.photoUrl && (
-                    <>
-                      <button type="button" onClick={() => { setRawImageSrc(formData.photoUrl); setUploadType('profile'); }} className="text-indigo-500 text-xs hover:underline flex items-center font-medium transition-colors"><Edit2 size={12} className="mr-1" />Adjust</button>
-                      <span className={isDarkMode ? 'text-slate-600' : 'text-gray-300'}>|</span>
-                      <button type="button" onClick={() => handleRemovePhoto('profile')} className="text-red-500 text-xs hover:underline flex items-center font-medium transition-colors"><Trash2 size={12} className="mr-1" />Remove</button>
-                    </>
-                  )}
-                </div>
-                <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>Max size 5MB</p>
-              </div>
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Full Name</label>
-                <input type="text" required className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-gray-300'}`} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Jane Doe"/>
-              </div>
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Jantina (Gender)</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Lelaki" checked={formData.gender === 'Lelaki'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-indigo-600 focus:ring-indigo-500"/><span className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Lelaki</span></label>
-                  <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Perempuan" checked={formData.gender === 'Perempuan'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-indigo-600 focus:ring-indigo-500"/><span className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Perempuan</span></label>
-                </div>
-              </div>
-              {formData.program === 'pemulihan' ? (
-                <>
-                  <div><label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>IC Number (Optional but Recommended)</label><input type="text" className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-gray-300'}`} value={formData.ic} onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })} placeholder="For Auto-Year Calculation (e.g. 16...)" maxLength={12}/></div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Class Name</label>
-                    <input type="text" required className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-gray-300'}`} value={formData.className} onChange={handleClassNameChange} placeholder="e.g. 2 He"/>
-                    <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>Format: Year ClassName (e.g. 2 He)</p>
-                  </div>
-                  <div><label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Subject</label><select className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'}`} value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })}>{subjects.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                  <div className="flex items-center gap-2 mt-2"><input type="checkbox" id="isNewStudent" checked={formData.isNewStudent || false} onChange={(e) => setFormData({ ...formData, isNewStudent: e.target.checked })} className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"/><label htmlFor="isNewStudent" className={`text-sm font-medium ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Murid Baru (插班生)</label></div>
-                </>
+              {loading ? (
+                <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading...</p></div>
+              ) : Object.keys(groupedPlanStudents).length === 0 ? (
+                 <div className="text-center py-24 bg-white dark:bg-slate-800 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 shadow-sm">
+                  <div className="bg-blue-50 dark:bg-slate-700 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6"><BookOpenCheck className="text-blue-300 dark:text-slate-500 w-10 h-10" /></div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No PLaN students</h3>
+                  <p className="text-slate-500 dark:text-slate-400">Students in Year 4, 5, and 6 appear here automatically.</p>
+                 </div>
               ) : (
-                <>
-                  <div><label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Kategori (Category)</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbkType" value="MBK" checked={formData.mbkType === 'MBK'} onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })} className="text-amber-600 focus:ring-amber-500"/><span className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>MBK (Tiada Kad)</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbkType" value="OKU" checked={formData.mbkType === 'OKU'} onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })} className="text-green-600 focus:ring-green-500"/><span className={`text-sm ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>OKU (Ada Kad)</span></label></div></div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>MyKid / IC Number</label>
-                    <input type="text" required className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-gray-300'}`} value={formData.ic} onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })} placeholder="e.g. 160520101234" maxLength={12}/>
-                    <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>System will auto-calculate School Year based on first 2 digits.</p>
+                 <div className="space-y-10">
+                  {Object.keys(groupedPlanStudents).sort().map(groupKey => (
+                     <div key={groupKey} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                      <div className="bg-blue-50/50 dark:bg-blue-900/30 px-8 py-4 border-b border-blue-100 dark:border-blue-800 flex items-center justify-between backdrop-blur-sm">
+                        <h3 className="font-extrabold text-blue-900 dark:text-blue-400 text-lg flex items-center gap-2"><BookOpenCheck className="text-blue-500" size={20} />{groupKey}</h3>
+                        <span className="text-xs font-bold bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-lg border border-blue-100 dark:border-blue-800 shadow-sm">{groupedPlanStudents[groupKey].length} Students</span>
+                      </div>
+                      <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                         {groupedPlanStudents[groupKey].map(student => (
+                           <div key={student.id} className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm hover:shadow-lg border border-slate-100 dark:border-slate-700 transition-all duration-300 hover:-translate-y-1 flex flex-col relative group">
+                             {/* Desktop View */}
+                             <div className="hidden sm:flex flex-col items-center p-5 gap-4">
+                               <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+                               <div className="text-center">
+                                  <h4 className="font-bold text-slate-900 dark:text-white text-base leading-tight mb-1">{student.name}</h4>
+                                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">{student.gender}</span>
+                               </div>
+                               <div className="mt-auto pt-4 border-t border-slate-50 dark:border-slate-700 flex flex-col gap-2 w-full">
+                                  <div className="flex items-center justify-between text-xs"><span className="font-bold text-slate-400 uppercase tracking-wider">Subject</span><span className="font-semibold text-slate-700 dark:text-slate-300 text-right">{student.subject}</span></div>
+                               </div>
+
+                               {role === 'admin' && (
+                                  <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-slate-800/90 p-1 rounded-lg backdrop-blur-sm shadow-sm border border-slate-100 dark:border-slate-700">
+                                     <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-slate-700 rounded transition-colors"><StickyNote size={16} /></button>
+                                     <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-slate-700 rounded transition-colors"><Trash2 size={16} /></button>
+                                     <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded transition-colors"><Edit2 size={16} /></button>
+                                  </div>
+                               )}
+                             </div>
+
+                             {/* Mobile View - Compact Side by Side */}
+                             <div className="sm:hidden flex flex-row items-start p-3 gap-3 relative z-10">
+                               <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-blue-400 to-blue-600"></div>
+                               
+                               <div className="flex flex-col items-center gap-2">
+                                  <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+                                  {/* Mobile Admin Buttons - 2 Cols under Avatar */}
+                                  {role === 'admin' && (
+                                      <div className="grid grid-cols-2 gap-1 w-[70px]">
+                                         <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800 rounded shadow-sm flex items-center justify-center"><StickyNote size={12} /></button>
+                                         <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700 border border-slate-100 dark:border-slate-600 rounded shadow-sm flex items-center justify-center"><Edit2 size={12} /></button>
+                                         <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded shadow-sm flex items-center justify-center col-span-2"><Trash2 size={12} /></button>
+                                      </div>
+                                  )}
+                               </div>
+                               
+                               <div className="flex-1 min-w-0 text-left">
+                                  <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1 break-words">{student.name}</h3>
+                                  <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-0.5">{student.subject}</div>
+                                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">{student.gender}</div>
+                               </div>
+                             </div>
+                              
+                             {student.isNewStudent && (
+                              <div className="absolute top-2 left-3 sm:top-2 sm:right-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
+                                <span className="w-1.5 h-1.5 bg-white rounded-full"></span> NEW
+                              </div>
+                            )}
+                           </div>
+                         ))}
+                      </div>
+                     </div>
+                  ))}
+                 </div>
+              )}
+            </div>
+          )}
+
+          {/* PROFILE VIEW */}
+          {currentSection === 'profile' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex flex-col lg:flex-row gap-4 mb-8 justify-between items-start lg:items-center bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 transition-colors">
+                <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                  <div className="relative group">
+                    <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 dark:text-white font-bold text-sm appearance-none transition-colors cursor-pointer" value={profileYearFilter} onChange={(e) => setProfileYearFilter(e.target.value)}>
+                      <option value="All">Filter: All Years</option>
+                      {availableYears.filter(y => y !== 'All').map(y => <option key={y} value={y}>{`Tahun ${y}`}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
                   </div>
-                  <div><label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Remarks</label><textarea className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-gray-300'}`} value={formData.remarks} onChange={(e) => setFormData({ ...formData, remarks: e.target.value })} placeholder="Enter optional remarks..." rows="2"></textarea></div>
-                  <div><label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Document Link</label><input type="text" className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-gray-300'}`} value={formData.docLink} onChange={(e) => setFormData({ ...formData, docLink: e.target.value })} placeholder="https://..." /></div>
-                  {formData.mbkType === 'OKU' && (
-                    <div className={`mt-3 p-3 rounded-lg border ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                      <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>QR Code (Kad OKU)</label>
-                      <div className="flex items-center gap-4">
-                        <div className={`w-20 h-20 border-2 border-dashed rounded-lg flex items-center justify-center overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-600' : 'bg-white border-gray-300'}`}>
-                          {formData.qrCodeUrl ? (<img src={formData.qrCodeUrl} alt="QR" className="w-full h-full object-cover" />) : (<QrCode className={isDarkMode ? 'text-slate-600' : 'text-gray-300'} />)}
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <label className={`cursor-pointer px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 w-fit ${isDarkMode ? 'bg-indigo-900/50 text-indigo-400 hover:bg-indigo-900' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}>
-                            <Camera size={14} /> Upload QR
-                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'qr')} />
-                          </label>
-                          {formData.qrCodeUrl && (
-                            <div className="flex gap-2">
-                              <button type="button" onClick={() => { setRawImageSrc(formData.qrCodeUrl); setUploadType('qr'); }} className="text-xs text-indigo-500 hover:underline">Adjust</button>
-                              <button type="button" onClick={() => handleRemovePhoto('qr')} className="text-xs text-red-500 hover:underline">Remove</button>
+                  <div className="relative group">
+                    <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 dark:text-white font-bold text-sm appearance-none transition-colors cursor-pointer" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+                      <option value="All">Filter: All Classes</option>
+                      {availableClasses.filter(c => c !== 'All').map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
+                  </div>
+                  <div className="relative group">
+                    <select className="w-full sm:w-48 px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 dark:text-white font-bold text-sm appearance-none transition-colors cursor-pointer" value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
+                      <option value="All">Semua Subjek</option>
+                      {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-600" />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 w-full lg:w-auto items-center">
+                  {role === 'admin' && currentSection === 'profile' && (
+                    <button onClick={openAdd} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white px-5 py-2.5 rounded-xl shadow-md shadow-blue-200 dark:shadow-none transition-all hover:-translate-y-0.5 font-bold text-sm"><Plus size={18} strokeWidth={2.5} /> Add Student</button>
+                  )}
+                  <button onClick={exportToExcel} className="flex-1 lg:flex-none flex items-center justify-center gap-2 text-sm text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-white font-bold bg-white dark:bg-slate-800 px-5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"><Download size={18} /> Export Excel</button>
+                </div>
+              </div>
+
+              {/* Student Groups */}
+              {loading ? (
+                <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400 font-medium">Loading database...</p></div>
+              ) : Object.keys(groupedProfileStudents).length === 0 ? (
+                <div className="text-center py-24 bg-white dark:bg-slate-800 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 shadow-sm"><div className="bg-slate-50 dark:bg-slate-700 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6"><Users className="text-slate-300 dark:text-slate-500 w-10 h-10" /></div><h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No students found</h3><p className="text-slate-500 dark:text-slate-400">Try adjusting your filters.</p></div>
+              ) : (
+                <div className="space-y-10">
+                  {Object.keys(groupedProfileStudents).sort().map(className => {
+                    const style = getClassColorStyle(className);
+                    return (
+                    <div key={className} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                      <div className={`px-8 py-4 border-b ${style.border} flex items-center justify-between bg-white dark:bg-slate-800`}>
+                        <h3 className={`font-extrabold ${style.text} text-lg flex items-center gap-3`}><div className={`bg-white dark:bg-slate-900 p-2 rounded-lg shadow-sm border ${style.border}`}><School className={style.icon} size={20} /></div>{className}</h3>
+                        <span className={`text-xs font-bold bg-white dark:bg-slate-900 ${style.icon} px-3 py-1.5 rounded-lg border ${style.border} shadow-sm`}>{groupedProfileStudents[className].length} Students</span>
+                      </div>
+                      <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                        {groupedProfileStudents[className].map(student => {
+                          const studentStats = calculateStats(student.attendanceRecords || []);
+                          return (
+                          <div key={student.id} className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm hover:shadow-lg border border-slate-300 dark:border-slate-700 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col">
+                            
+                            {/* Desktop View (Vertical Card) */}
+                            <div className="hidden sm:flex flex-col items-center p-3 gap-4">
+                                <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-20 h-20" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+                                
+                                <div className="w-full text-center">
+                                  <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">{student.name}</h3>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">{student.gender || 'Lelaki'}</p>
+                                  
+                                  <div className={`inline-block items-center justify-center text-[10px] font-bold text-white px-2 py-0.5 rounded-md uppercase tracking-wide mb-2 shadow-sm ${getSubjectBadgeColor(student.subject)}`}>{student.subject}</div>
+
+                                  <div className="flex flex-col gap-1 w-full">
+                                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">
+                                      <span>Attendance</span>
+                                      <span className={studentStats.percent >= 75 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>{studentStats.percent}%</span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden"><div className={`h-full rounded-full ${studentStats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${studentStats.percent}%` }}></div></div>
+                                  </div>
+                                </div>
+
+                                {role === 'admin' && (
+                                  <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-slate-800/90 p-1 rounded-lg backdrop-blur-sm border border-slate-100 dark:border-slate-700">
+                                      <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-slate-700 rounded transition-colors"><StickyNote size={14} /></button>
+                                      <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700 rounded transition-colors"><Calendar size={14} /></button>
+                                      <button onClick={() => openEdit(student)} className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded transition-colors"><Edit2 size={14} /></button>
+                                      <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 hover:bg-purple-50 dark:hover:bg-slate-700 rounded transition-colors"><ArrowRight size={14} /></button>
+                                      <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-slate-700 rounded transition-colors"><Trash2 size={14} /></button>
+                                  </div>
+                                )}
                             </div>
-                          )}
-                        </div>
+
+                            {/* Mobile View (Horizontal Compact) */}
+                            <div className="sm:hidden flex flex-row items-start p-3 gap-3 relative z-10">
+                                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${studentStats.percent >= 75 ? 'bg-gradient-to-b from-emerald-400 to-emerald-600' : 'bg-gradient-to-b from-amber-400 to-amber-600'}`}></div>
+                                
+                                <div className="flex flex-col items-center gap-2">
+                                  <Avatar name={student.name} color={student.color || 'bg-blue-500'} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+                                  {/* Mobile Admin Buttons - 2 Cols under Avatar */}
+                                  {role === 'admin' && (
+                                      <div className="grid grid-cols-2 gap-1 w-[70px]">
+                                         <button onClick={() => openNotesModal(student)} className="p-1.5 text-amber-500 bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800 shadow-sm flex items-center justify-center rounded"><StickyNote size={12} /></button>
+                                         <button onClick={() => openAttendanceModal(student)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 shadow-sm flex items-center justify-center rounded"><Calendar size={12} /></button>
+                                         <button onClick={() => openEdit(student)} className="p-1.5 text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700 border border-slate-100 dark:border-slate-600 shadow-sm flex items-center justify-center rounded"><Edit2 size={12} /></button>
+                                         <button onClick={() => toggleStudentStatus(student)} className="p-1.5 text-purple-500 bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 shadow-sm flex items-center justify-center rounded"><ArrowRight size={12} /></button>
+                                         <button onClick={() => confirmDelete(student)} className="p-1.5 text-red-500 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 shadow-sm flex items-center justify-center col-span-2 rounded"><Trash2 size={12} /></button>
+                                      </div>
+                                  )}
+                                </div>
+                                
+                                <div className="flex-1 min-w-0 text-left">
+                                  <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1 break-words">{student.name}</h3>
+                                  <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-0.5">{className}</div>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">{student.gender || 'Lelaki'}</p>
+                                  
+                                  <div className={`inline-block items-center justify-center text-[10px] font-bold text-white px-2 py-0.5 rounded-md uppercase tracking-wide mb-2 shadow-sm ${getSubjectBadgeColor(student.subject)}`}>{student.subject}</div>
+
+                                  <div className="flex flex-col gap-1 w-full mt-1">
+                                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">
+                                      <span>Attendance</span>
+                                      <span className={studentStats.percent >= 75 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>{studentStats.percent}%</span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden"><div className={`h-full rounded-full ${studentStats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${studentStats.percent}%` }}></div></div>
+                                  </div>
+                                </div>
+                            </div>
+
+                            {student.isNewStudent && (
+                              <div className="absolute top-2 left-3 sm:left-auto sm:right-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5">
+                                <span className="w-1.5 h-1.5 bg-white rounded-full"></span> NEW
+                              </div>
+                            )}
+                          </div>
+                        )})}
                       </div>
                     </div>
-                  )}
-                </>
+                  )})}
+                </div>
               )}
-              <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${isDarkMode ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Cancel</button>
-                <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm">{editingId ? 'Save Changes' : 'Add Student'}</button>
+            </div>
+          )}
+
+          {/* Image Adjuster Modal (Rendered at root level) */}
+          {rawImageSrc && (
+            <ImageAdjuster 
+              imageSrc={rawImageSrc}
+              onSave={handleCropSave}
+              onCancel={handleCropCancel}
+            />
+          )}
+
+          {/* Full Screen Image Viewer (Rendered at root level) */}
+          {fullScreenImage && (
+            <ImageViewer 
+              src={fullScreenImage}
+              onClose={() => setFullScreenImage(null)}
+            />
+          )}
+        </main>
+
+        {/* Fixed Bottom Navigation (Mobile Only) */}
+        <div className="fixed bottom-0 left-0 w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex justify-around items-center z-50 sm:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] transition-colors duration-300 pb-safe">
+           {[
+              { id: 'profile', label: 'Profile', icon: School },
+              { id: 'plan', label: 'PLaN', icon: BookOpenCheck },
+              { id: 'mbk', label: 'MBK', icon: Accessibility },
+              { id: 'lulus', label: 'Lulus', icon: GraduationCap },
+              { id: 'stats', label: 'Stats', icon: BarChart3 },
+              { id: 'progress', label: 'Prog', icon: TrendingUp }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={`flex flex-col items-center justify-center w-full py-3 transition-all duration-200 ${
+                  currentSection === tab.id
+                    ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20'
+                    : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                }`}
+              >
+                <tab.icon size={20} strokeWidth={currentSection === tab.id ? 2.5 : 2} />
+                <span className="text-[10px] font-bold mt-1">{tab.label}</span>
+              </button>
+            ))}
+        </div>
+        
+        {/* Modals */}
+        <Modal isOpen={showAdminLogin} onClose={() => { setShowAdminLogin(false); setAdminPassword(''); setLoginError(''); }} title="Admin Login">
+              <div className="flex flex-col items-center justify-center mb-6">
+                <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-full mb-3">
+                  <Lock className="text-blue-600 dark:text-blue-400 w-8 h-8" />
+                </div>
+                <p className="text-sm text-gray-500 dark:text-slate-400 text-center">
+                  Please enter the admin password to access edit features.
+                </p>
               </div>
+
+              <form onSubmit={handleAdminLogin} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Password</label>
+                    <input 
+                      type="password" 
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${loginError ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-indigo-500'}`} 
+                      value={adminPassword} 
+                      onChange={(e) => { setAdminPassword(e.target.value); setLoginError(''); }} 
+                      placeholder="Enter password..." 
+                      autoFocus 
+                    />
+                    {loginError && <p className="text-xs text-red-500 mt-1">{loginError}</p>}
+                  </div>
+                  <button type="submit" className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm transition-colors">Authenticate</button>
+              </form>
+          </Modal>
+          <Modal isOpen={deleteConfirmation.isOpen} onClose={() => setDeleteConfirmation({ isOpen: false, studentId: null, studentName: '' })} title="Confirm Deletion">
+             <div className="flex flex-col items-center justify-center mb-6 text-center">
+               <div className="bg-red-50 dark:bg-red-900/30 p-4 rounded-full mb-4">
+                 <Trash2 className="text-red-600 dark:text-red-400 w-10 h-10" />
+               </div>
+               <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Delete Record?</h4>
+               <p className="text-gray-500 dark:text-slate-400">Are you sure you want to delete <span className="font-semibold text-gray-900 dark:text-white">{deleteConfirmation.studentName}</span>? This action cannot be undone.</p>
+             </div>
+             <div className="flex gap-3">
+               <button onClick={() => setDeleteConfirmation({ isOpen: false, studentId: null, studentName: '' })} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">Cancel</button>
+               <button onClick={executeDelete} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 shadow-sm transition-colors">Yes, Delete</button>
+             </div>
+          </Modal>
+          <Modal isOpen={moveConfirmation.isOpen} onClose={() => setMoveConfirmation({ isOpen: false, student: null, newStatus: '' })} title="Confirm Status Change">
+              <div className="flex flex-col items-center justify-center mb-6 text-center">
+                <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-full mb-4">
+                  <ArrowLeftRight className="text-blue-600 dark:text-blue-400 w-10 h-10" />
+                </div>
+                <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Move Student?</h4>
+                <p className="text-gray-500 dark:text-slate-400 mb-4">{moveConfirmation.newStatus === 'Lulus' ? `Mark ${moveConfirmation.student?.name} as "Lulus Pemulihan"?` : `Move ${moveConfirmation.student?.name} back to "Profile Murid Pemulihan"?`}</p>
+                {moveConfirmation.newStatus === 'Lulus' && (
+                  <div className="w-full text-left bg-gray-50 dark:bg-slate-700 p-3 rounded-lg border border-gray-200 dark:border-slate-600">
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase mb-1">Graduation Date</label>
+                    <div className="flex items-center gap-2">
+                      <Calendar size={16} className="text-gray-400 dark:text-slate-400" />
+                      <input type="date" className="bg-transparent border-none focus:ring-0 text-sm font-medium text-gray-900 dark:text-white w-full p-0 style-color-scheme-dark" value={moveDate} onChange={(e) => setMoveDate(e.target.value)} />
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setMoveConfirmation({ isOpen: false, student: null, newStatus: '' })} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">Cancel</button>
+                <button onClick={executeMove} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm transition-colors">Confirm</button>
+              </div>
+          </Modal>
+          <Modal isOpen={isNotesModalOpen} onClose={() => setIsNotesModalOpen(false)} title="Catatan Murid">
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-transparent dark:border-amber-800/50">
+                  <Avatar name={selectedStudentForNotes?.name || ''} color={selectedStudentForNotes?.color || 'bg-blue-500'} photoUrl={selectedStudentForNotes?.photoUrl}/>
+                  <div>
+                    <h4 className="font-bold text-gray-900 dark:text-white">{selectedStudentForNotes?.name}</h4>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">{selectedStudentForNotes?.className}</p>
+                  </div>
+                </div>
+                <form onSubmit={saveNote} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase mb-1">Date</label>
+                    <input type="date" required className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 style-color-scheme-dark" value={noteForm.date} onChange={(e) => setNoteForm({...noteForm, date: e.target.value})}/>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase mb-1">Catatan (Note)</label>
+                    <textarea required rows="3" className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 dark:placeholder-slate-400" value={noteForm.text} onChange={(e) => setNoteForm({...noteForm, text: e.target.value})} placeholder="Enter note details here..."></textarea>
+                  </div>
+                  <button type="submit" className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium shadow-sm transition-colors">{noteForm.id ? 'Update Note' : 'Add Note'}</button>
+                </form>
+                <div className="border-t border-gray-100 dark:border-slate-700 pt-4">
+                  <h5 className="text-sm font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2"><Clock size={16} /> History</h5>
+                  <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                    {selectedStudentForNotes?.notes && selectedStudentForNotes.notes.length > 0 ? (
+                      [...(selectedStudentForNotes.notes || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).map((note) => (
+                      <div key={note.id} className="bg-gray-50 dark:bg-slate-800 p-3 rounded-lg border border-gray-200 dark:border-slate-700 relative group transition-colors">
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-xs font-bold text-gray-500 dark:text-slate-400 bg-white dark:bg-slate-700 px-2 py-0.5 rounded border border-gray-200 dark:border-slate-600">{note.date}</span>
+                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-slate-800/90 p-1 rounded shadow-sm">
+                            <button type="button" onClick={() => startEditNote(note)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 p-1"><Edit2 size={14} /></button>
+                            <button type="button" onClick={() => deleteNote(note.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 p-1"><Trash2 size={14} /></button>
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-800 dark:text-slate-300 whitespace-pre-wrap">{note.text}</p>
+                      </div>
+                    ))) : (<p className="text-center text-sm text-gray-400 dark:text-slate-500 py-4">No notes recorded yet.</p>)}
+                  </div>
+                </div>
+              </div>
+          </Modal>
+          <Modal isOpen={isAttendanceModalOpen} onClose={() => setIsAttendanceModalOpen(false)} title="Manage Attendance">
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-slate-800 rounded-lg border border-transparent dark:border-slate-700">
+                  <Avatar name={selectedStudentForAttendance?.name || ''} color={selectedStudentForAttendance?.color || 'bg-blue-500'} photoUrl={selectedStudentForAttendance?.photoUrl}/>
+                  <div>
+                    <h4 className="font-bold text-gray-900 dark:text-white">{selectedStudentForAttendance?.name}</h4>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">{selectedStudentForAttendance?.className}</p>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Mark for specific date</label>
+                  <div className="flex gap-2">
+                    <input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} className="flex-1 px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 style-color-scheme-dark"/>
+                    <button onClick={() => markAttendance('present')} className="flex items-center justify-center gap-1 px-4 py-2 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-900 font-medium transition-colors"><Check size={16} /> Present</button>
+                    <button onClick={() => markAttendance('absent')} className="flex items-center justify-center gap-1 px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900 font-medium transition-colors"><X size={16} /> Absent</button>
+                  </div>
+                </div>
+                <div>
+                  <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2"><Clock size={14} /> Record History</h5>
+                  <div className="max-h-48 overflow-y-auto border border-gray-100 dark:border-slate-700 rounded-lg divide-y divide-gray-100 dark:divide-slate-700">
+                    {selectedStudentForAttendance?.attendanceRecords?.length > 0 ? (
+                      [...(selectedStudentForAttendance.attendanceRecords || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).map((record, idx) => (
+                      <div key={idx} className="flex justify-between items-center p-3 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
+                        <div className="text-sm">
+                          <span className="font-medium text-gray-700 dark:text-slate-300">{record.date}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${record.status === 'present' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400'}`}>
+                            {record.status}
+                          </span>
+                          <button onClick={() => deleteAttendanceRecord(record)} className="text-gray-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 p-1" title="Delete entry"><Trash2 size={14} /></button>
+                        </div>
+                      </div>
+                    ))) : (<div className="p-4 text-center text-sm text-gray-400 dark:text-slate-500">No records found.</div>)}
+                  </div>
+                </div>
+              </div>
+          </Modal>
+          <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Student" : "Add New Student"}>
+              <form onSubmit={handleSave} className="space-y-4">
+                {!editingId && (
+                  <div className="flex p-1 bg-gray-100 dark:bg-slate-900 rounded-lg mb-4">
+                    <button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'pemulihan' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'}`} onClick={() => setFormData(prev => ({ ...prev, program: 'pemulihan' }))}>Profile Pemulihan</button>
+                    <button type="button" className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${formData.program === 'mbk' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'}`} onClick={() => setFormData(prev => ({ ...prev, program: 'mbk' }))}>Murid MBK & OKU</button>
+                  </div>
+                )}
+                <div className="flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-slate-800 rounded-lg border-2 border-dashed border-gray-200 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors">
+                  <div className="mb-3"><Avatar name={formData.name || 'User'} color="bg-gray-300 dark:bg-slate-600" photoUrl={formData.photoUrl} size="w-20 h-20"/></div>
+                  <label className="cursor-pointer">
+                    <span className="flex items-center gap-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700"><Camera size={16} /> {formData.photoUrl ? 'Change Photo' : 'Upload Photo'}</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'profile')} />
+                  </label>
+                  <div className="flex items-center gap-3 mt-2">
+                    {formData.photoUrl && (
+                      <>
+                        <button type="button" onClick={() => { setRawImageSrc(formData.photoUrl); setUploadType('profile'); }} className="text-indigo-600 dark:text-indigo-400 text-xs hover:underline flex items-center font-medium transition-colors"><Edit2 size={12} className="mr-1" />Adjust</button>
+                        <span className="text-gray-300 dark:text-slate-600">|</span>
+                        <button type="button" onClick={() => handleRemovePhoto('profile')} className="text-red-500 dark:text-red-400 text-xs hover:underline flex items-center font-medium transition-colors"><Trash2 size={12} className="mr-1" />Remove</button>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">Max size 5MB</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Full Name</label>
+                  <input type="text" required className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:placeholder-slate-400" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Jane Doe"/>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Jantina (Gender)</label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Lelaki" checked={formData.gender === 'Lelaki'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-indigo-600 focus:ring-indigo-500"/><span className="text-sm text-gray-700 dark:text-slate-300">Lelaki</span></label>
+                    <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Perempuan" checked={formData.gender === 'Perempuan'} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="text-indigo-600 focus:ring-indigo-500"/><span className="text-sm text-gray-700 dark:text-slate-300">Perempuan</span></label>
+                  </div>
+                </div>
+                {formData.program === 'pemulihan' ? (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">IC Number (Optional but Recommended)</label>
+                      <input type="text" className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm dark:placeholder-slate-400" value={formData.ic} onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })} placeholder="For Auto-Year Calculation (e.g. 16...)" maxLength={12}/>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Class Name</label>
+                      <input type="text" required className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm dark:placeholder-slate-400" value={formData.className} onChange={handleClassNameChange} placeholder="e.g. 2 He"/>
+                      <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">Format: Year ClassName (e.g. 2 He)</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Subject</label>
+                      <select className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })}>
+                        {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <input type="checkbox" id="isNewStudent" checked={formData.isNewStudent || false} onChange={(e) => setFormData({ ...formData, isNewStudent: e.target.checked })} className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"/>
+                      <label htmlFor="isNewStudent" className="text-sm font-medium text-gray-700 dark:text-slate-300">Murid Baru (插班生)</label>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Kategori (Category)</label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbkType" value="MBK" checked={formData.mbkType === 'MBK'} onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })} className="text-amber-600 focus:ring-amber-500"/><span className="text-sm text-gray-700 dark:text-slate-300">MBK (Tiada Kad)</span></label>
+                        <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mbkType" value="OKU" checked={formData.mbkType === 'OKU'} onChange={(e) => setFormData({ ...formData, mbkType: e.target.value })} className="text-green-600 focus:ring-green-500"/><span className="text-sm text-gray-700 dark:text-slate-300">OKU (Ada Kad)</span></label>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">MyKid / IC Number</label>
+                      <input type="text" required className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm dark:placeholder-slate-400" value={formData.ic} onChange={(e) => setFormData({ ...formData, ic: e.target.value.replace(/\D/g, '') })} placeholder="e.g. 160520101234" maxLength={12}/>
+                      <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">System will auto-calculate School Year based on first 2 digits.</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Remarks</label>
+                      <textarea className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:placeholder-slate-400" value={formData.remarks} onChange={(e) => setFormData({ ...formData, remarks: e.target.value })} placeholder="Enter optional remarks..." rows="2"></textarea>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Document Link</label>
+                      <input type="text" className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm dark:placeholder-slate-400" value={formData.docLink} onChange={(e) => setFormData({ ...formData, docLink: e.target.value })} placeholder="https://..." />
+                    </div>
+                    
+                    {formData.mbkType === 'OKU' && (
+                      <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">QR Code (Kad OKU)</label>
+                        <div className="flex items-center gap-4">
+                          <div className="w-20 h-20 bg-white dark:bg-slate-900 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg flex items-center justify-center overflow-hidden">
+                            {formData.qrCodeUrl ? (<img src={formData.qrCodeUrl} alt="QR" className="w-full h-full object-cover" />) : (<QrCode className="text-gray-300 dark:text-slate-600" />)}
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <label className="cursor-pointer bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors flex items-center gap-1 w-fit">
+                              <Camera size={14} /> Upload QR
+                              <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'qr')} />
+                            </label>
+                            {formData.qrCodeUrl && (
+                              <div className="flex gap-2">
+                                <button type="button" onClick={() => { setRawImageSrc(formData.qrCodeUrl); setUploadType('qr'); }} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">Adjust</button>
+                                <button type="button" onClick={() => handleRemovePhoto('qr')} className="text-xs text-red-500 dark:text-red-400 hover:underline">Remove</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+                <div className="pt-4 flex justify-end gap-3">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">Cancel</button>
+                  <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm transition-colors">{editingId ? 'Save Changes' : 'Add Student'}</button>
+                </div>
             </form>
         </Modal>
+
+      </div>
     </div>
   );
 }
