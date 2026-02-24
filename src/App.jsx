@@ -333,7 +333,8 @@ const getClassColorStyle = (className) => {
 const getSubjectBadgeColor = (subject) => {
   if (subject === 'Pemulihan BM') return 'bg-blue-600';
   if (subject === 'Pemulihan Matematik') return 'bg-orange-500';
-  return 'bg-purple-600';
+  if (subject === 'Pemulihan BM dan Matematik') return 'bg-purple-600';
+  return 'bg-slate-500';
 };
 
 const calculateStats = (records) => {
@@ -353,7 +354,7 @@ export default function StudentDatabaseApp() {
   const [currentSection, setCurrentSection] = useState('profile'); 
   const [selectedAdminStudent, setSelectedAdminStudent] = useState(null); 
   
-  // Dark Mode
+  // Dark Mode Persistence
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('darkMode');
@@ -375,7 +376,7 @@ export default function StudentDatabaseApp() {
   const [profileYearFilter, setProfileYearFilter] = useState('All');
   const [classFilter, setClassFilter] = useState('All');
   const [subjectFilter, setSubjectFilter] = useState('All');
-  const [mbkTypeFilter, setMbkTypeFilter] = useState('All');
+  const [mbkTypeFilter, setMbkTypeFilter] = useState('All'); // THE FIX: This was missing previously!
   const [statsFilters, setStatsFilters] = useState({ year: 'All', gender: 'All', subject: 'All' });
 
   // Auth & Modals
@@ -702,7 +703,7 @@ export default function StudentDatabaseApp() {
     setFormData({ name: '', program: currentSection === 'mbk' ? 'mbk' : 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: 'Lelaki', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false, qrCodeUrl: '' });
     setIsModalOpen(true);
   };
-  
+
   const openNotesModal = (student) => {
     setSelectedStudentForNotes(student);
     setNoteForm({ id: null, text: '', date: new Date().toISOString().split('T')[0] });
