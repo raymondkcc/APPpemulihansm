@@ -46,7 +46,6 @@ const KEMAHIRAN_MATH = [
 const subjects = ['Pemulihan BM', 'Pemulihan Matematik', 'Pemulihan BM dan Matematik'];
 const cardColors = ['bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-orange-500', 'bg-pink-500', 'bg-indigo-500'];
 
-
 // --- UI Components ---
 const RetroProgressBar = ({ progress }) => (
   <div className="w-full bg-gray-200 rounded-md p-1 border border-gray-400 shadow-inner">
@@ -402,6 +401,12 @@ export default function StudentDatabaseApp() {
         if (type === 'profile') setFormData(prev => ({ ...prev, photoUrl: '' }));
         else setFormData(prev => ({ ...prev, qrCodeUrl: '' }));
     }
+  };
+  
+  const handleClassNameChange = (e) => {
+    let val = e.target.value.toUpperCase();
+    val = val.replace(/^(\d)([A-Z])/, '$1 $2');
+    setFormData({ ...formData, className: val });
   };
 
   const handleSave = async (e) => {
