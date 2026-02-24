@@ -3,7 +3,8 @@ import {
   Users, Plus, Edit2, Trash2, Shield, Download, CheckCircle, XCircle, GraduationCap,
   BookOpen, PieChart, Camera, Lock, ArrowRight, RotateCcw, Calendar, Clock, Check, X,
   Filter, BarChart3, ArrowLeftRight, Accessibility, School, StickyNote, MessageSquare, 
-  FileText, ZoomIn, ZoomOut, Sparkles, QrCode, TrendingUp, Save, Search, ChevronDown, Menu, Sun, Moon
+  FileText, ZoomIn, ZoomOut, Sparkles, QrCode, TrendingUp, Save, Search, ChevronDown, 
+  Menu, Sun, Moon, CreditCard, ExternalLink
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -45,57 +46,25 @@ const appId = 'my-school-database';
 
 // --- Constants ---
 const KEMAHIRAN_BM = [
-  "KP 1: Huruf Kecil", 
-  "KP 2: Huruf Besar", 
-  "KP 3: Huruf Vokal", 
-  "KP 4: Suku Kata KV",
-  "KP 5: Perkataan KV + KV", 
-  "KP 6: Perkataan V + KV", 
-  "KP 7: Perkataan KV + KV + KV", 
-  "KP 8: Perkataan KVK",
-  "KP 9: Suku Kata KVK", 
-  "KP 10: Perkataan V + KVK", 
-  "KP 11: Perkataan KV + KVK", 
-  "KP 12: Perkataan KVK + KV",
-  "KP 13: Perkataan KVK + KVK", 
-  "KP 14: Perkataan KV + KV + KVK", 
-  "KP 15: Perkataan KV + KVK + KV", 
-  "KP 16: Perkataan KVK + KV + KV",
-  "KP 17: Perkataan KV + KVK + KVK", 
-  "KP 18: Perkataan KVK + KV + KVK", 
-  "KP 19: Perkataan KVK + KVK + KV", 
-  "KP 20: Perkataan KVK + KVK + KVK",
-  "KP 21: Perkataan KVKK", 
-  "KP 22: Perkataan V + KVKK", 
-  "KP 23: Perkataan K + VKK", 
-  "KP 24: Perkataan KV + KVKK",
-  "KP 25: Perkataan KVK + KVKK", 
-  "KP 26: Perkataan KVKK + KV", 
-  "KP 27: Perkataan KVKK + KVK", 
-  "KP 28: Perkataan KVKK + KVKK",
-  "KP 29: Perkataan KV + KV + KVKK", 
-  "KP 30: Perkataan KV + KVK + KVKK", 
-  "KP 31: Perkataan KVK + KV + KVKK", 
-  "KP 32: Bacaan dan Pemahaman"
+  "KP 1: Huruf Kecil", "KP 2: Huruf Besar", "KP 3: Huruf Vokal", "KP 4: Suku Kata KV",
+  "KP 5: Perkataan KV + KV", "KP 6: Perkataan V + KV", "KP 7: Perkataan KV + KV + KV", "KP 8: Perkataan KVK",
+  "KP 9: Suku Kata KVK", "KP 10: Perkataan V + KVK", "KP 11: Perkataan KV + KVK", "KP 12: Perkataan KVK + KV",
+  "KP 13: Perkataan KVK + KVK", "KP 14: Perkataan KV + KV + KVK", "KP 15: Perkataan KV + KVK + KV", "KP 16: Perkataan KVK + KV + KV",
+  "KP 17: Perkataan KV + KVK + KVK", "KP 18: Perkataan KVK + KV + KVK", "KP 19: Perkataan KVK + KVK + KV", "KP 20: Perkataan KVK + KVK + KVK",
+  "KP 21: Perkataan KVKK", "KP 22: Perkataan V + KVKK", "KP 23: Perkataan K + VKK", "KP 24: Perkataan KV + KVKK",
+  "KP 25: Perkataan KVK + KVKK", "KP 26: Perkataan KVKK + KV", "KP 27: Perkataan KVKK + KVK", "KP 28: Perkataan KVKK + KVKK",
+  "KP 29: Perkataan KV + KV + KVKK", "KP 30: Perkataan KV + KVK + KVKK", "KP 31: Perkataan KVK + KV + KVKK", "KP 32: Bacaan dan Pemahaman"
 ];
 
 const KEMAHIRAN_MATH = [
-  "KP 1: Pra Nombor", 
-  "KP 2: Konsep Nombor", 
-  "KP 3: Nombor Bulat", 
-  "KP 4: Tambah Lingkungan 10", 
-  "KP 5: Tolak Lingkungan 10",
-  "KP 6: Tambah Lingkungan 18", 
-  "KP 7: Tolak Lingkungan 18", 
-  "KP 8: Tambah Lingkungan 100", 
-  "KP 9: Tolak Lingkungan 100",
-  "KP 10: Darab", 
-  "KP 11: Bahagi", 
-  "KP 12: Wang & Masa"
+  "KP 1: Pra Nombor", "KP 2: Konsep Nombor", "KP 3: Nombor Bulat", "KP 4: Tambah Lingkungan 10", "KP 5: Tolak Lingkungan 10",
+  "KP 6: Tambah Lingkungan 18", "KP 7: Tolak Lingkungan 18", "KP 8: Tambah Lingkungan 100", "KP 9: Tolak Lingkungan 100",
+  "KP 10: Darab", "KP 11: Bahagi", "KP 12: Wang & Masa"
 ];
 
 const subjects = ['Pemulihan BM', 'Pemulihan Matematik', 'Pemulihan BM dan Matematik'];
 const cardColors = ['bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-orange-500', 'bg-pink-500', 'bg-indigo-500'];
+
 
 // --- UI Components ---
 
@@ -227,10 +196,16 @@ const ImageAdjuster = ({ imageSrc, onSave, onCancel, title = "Adjust Photo" }) =
           <p className="text-center text-xs text-slate-400">Drag to move • Pinch/Slider to zoom</p>
         </div>
         <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex gap-3">
-          <button onClick={onCancel} className="flex-1 py-2.5 font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600">
+          <button 
+            onClick={onCancel} 
+            className="flex-1 py-2.5 font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600"
+          >
             Cancel
           </button>
-          <button onClick={handleSave} className="flex-1 py-2.5 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-md shadow-indigo-200 dark:shadow-none">
+          <button 
+            onClick={handleSave} 
+            className="flex-1 py-2.5 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-md shadow-indigo-200 dark:shadow-none"
+          >
             Save
           </button>
         </div>
@@ -245,7 +220,10 @@ const ImageViewer = ({ src, onClose }) => {
   if (!src) return null;
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 cursor-zoom-out animate-in fade-in duration-200" onClick={onClose}>
-       <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
+       <button 
+         onClick={onClose} 
+         className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors"
+       >
          <X size={32} />
        </button>
        <img 
@@ -290,7 +268,10 @@ const Modal = ({ isOpen, onClose, title, children }) => {
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 fade-in border border-slate-200 dark:border-slate-700">
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800 sticky top-0 z-10">
           <h3 className="font-bold text-lg text-slate-800 dark:text-white tracking-tight">{title}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 p-1 rounded-full transition-colors">
+          <button 
+            onClick={onClose} 
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 p-1 rounded-full transition-colors"
+          >
             <XCircle size={24} />
           </button>
         </div>
@@ -352,8 +333,7 @@ const getClassColorStyle = (className) => {
 const getSubjectBadgeColor = (subject) => {
   if (subject === 'Pemulihan BM') return 'bg-blue-600';
   if (subject === 'Pemulihan Matematik') return 'bg-orange-500';
-  if (subject === 'Pemulihan BM dan Matematik') return 'bg-purple-600';
-  return 'bg-slate-500';
+  return 'bg-purple-600';
 };
 
 const calculateStats = (records) => {
@@ -371,11 +351,9 @@ export default function StudentDatabaseApp() {
   // App Theme & Role State
   const [role, setRole] = useState('user'); 
   const [currentSection, setCurrentSection] = useState('profile'); 
-  
-  // Touchscreen Admin Control
   const [selectedAdminStudent, setSelectedAdminStudent] = useState(null); 
-
-  // Dark Mode Persistence
+  
+  // Dark Mode
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('darkMode');
@@ -484,17 +462,10 @@ export default function StudentDatabaseApp() {
 
   const handleRoleSwitch = async (targetRole) => {
     if (targetRole === 'admin') {
-      if (role !== 'admin') {
-        setShowAdminLogin(true);
-      }
+      if (role !== 'admin') setShowAdminLogin(true);
     } else {
       if (role === 'admin') {
-         try {
-            await signOut(auth);
-            setRole('user');
-         } catch(e) {
-            console.error("Logout failed", e);
-         }
+         try { await signOut(auth); setRole('user'); } catch(e) { console.error("Logout failed", e); }
       }
     }
   };
@@ -503,36 +474,29 @@ export default function StudentDatabaseApp() {
     e.preventDefault();
     try {
         await signInWithEmailAndPassword(auth, "admin@pemulihan.com", adminPassword);
-        setShowAdminLogin(false);
-        setAdminPassword('');
+        setShowAdminLogin(false); 
+        setAdminPassword(''); 
         setLoginError('');
-    } catch (error) {
-        setLoginError('Incorrect password or account not setup.');
-        console.error("Login failed", error);
+    } catch (error) { 
+        setLoginError('Incorrect password.'); 
     }
   };
 
   const handleImageUpload = (e, type = 'profile') => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("Image is too large. Please choose an image under 5MB."); 
-        return;
-      }
+      if (file.size > 5 * 1024 * 1024) { alert("Image is too large. Please choose an image under 5MB."); return; }
       const reader = new FileReader();
-      reader.onload = (event) => {
-         setRawImageSrc(event.target.result);
-         setUploadType(type);
-      };
+      reader.onload = (event) => { setRawImageSrc(event.target.result); setUploadType(type); };
       reader.readAsDataURL(file);
     }
   };
   
   const handleCropSave = (croppedImageBase64) => {
     if (uploadType === 'profile') {
-        setFormData(prev => ({ ...prev, photoUrl: croppedImageBase64 }));
+      setFormData(prev => ({ ...prev, photoUrl: croppedImageBase64 }));
     } else {
-        setFormData(prev => ({ ...prev, qrCodeUrl: croppedImageBase64 }));
+      setFormData(prev => ({ ...prev, qrCodeUrl: croppedImageBase64 }));
     }
     setRawImageSrc(null);
   };
@@ -540,27 +504,25 @@ export default function StudentDatabaseApp() {
   const handleCropCancel = () => {
     setRawImageSrc(null);
   };
-  
+
   const handleRemovePhoto = (type = 'profile') => {
-    if (window.confirm(`Are you sure you want to remove the ${type === 'profile' ? 'profile photo' : 'QR code'}?`)) {
-        if (type === 'profile') {
-            setFormData(prev => ({ ...prev, photoUrl: '' }));
-        } else {
-            setFormData(prev => ({ ...prev, qrCodeUrl: '' }));
-        }
+    if(window.confirm(`Are you sure you want to remove the ${type === 'profile' ? 'profile photo' : 'QR code'}?`)) {
+        if (type === 'profile') setFormData(prev => ({ ...prev, photoUrl: '' }));
+        else setFormData(prev => ({ ...prev, qrCodeUrl: '' }));
     }
+  };
+
+  const handleClassNameChange = (e) => {
+    let val = e.target.value.toUpperCase();
+    val = val.replace(/^(\d)([A-Z])/, '$1 $2');
+    setFormData({ ...formData, className: val });
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
     if (!user || !db) return;
+    if (!formData.gender) { alert("Please select a gender (Jantina) before saving."); return; }
     
-    if (!formData.gender) {
-      alert("Please select a gender (Jantina) before saving.");
-      return;
-    }
-
-    const randomColor = cardColors[Math.floor(Math.random() * cardColors.length)];
     try {
       const dataToSave = {
         name: formData.name, 
@@ -590,108 +552,68 @@ export default function StudentDatabaseApp() {
       }
 
       if (editingId) {
-        const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', editingId);
-        await updateDoc(ref, dataToSave);
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', editingId), dataToSave);
       } else {
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), {
           ...dataToSave, 
           attendanceRecords: [], 
           notes: [], 
-          color: randomColor, 
+          color: cardColors[Math.floor(Math.random() * cardColors.length)], 
           createdAt: serverTimestamp()
         });
       }
       setIsModalOpen(false); 
       setEditingId(null);
-    } catch (err) { 
-      console.error("Error saving:", err); 
-    }
+    } catch (err) { console.error("Error saving:", err); }
   };
   
   const handleProgressUpdate = async () => {
     if (!user || !selectedStudentForProgress || !db) return;
     try {
-       const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForProgress.id);
-       await updateDoc(ref, {
-         progress: studentProgressData
+       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForProgress.id), { 
+         progress: studentProgressData 
        });
        alert("Progress saved successfully!");
-    } catch (err) {
-       console.error("Error saving progress:", err);
-       alert("Failed to save progress.");
+    } catch (err) { 
+       console.error("Error saving progress:", err); 
+       alert("Failed to save progress."); 
     }
   };
   
   const toggleSkill = (skillIndex) => {
     const currentSubjectKey = progressSubject === 'BM' ? 'bm' : 'math';
     const currentSkills = studentProgressData[currentSubjectKey] || [];
-    
-    let newSkills;
-    if (currentSkills.includes(skillIndex)) {
-      newSkills = currentSkills.filter(i => i !== skillIndex);
-    } else {
-      newSkills = [...currentSkills, skillIndex];
-    }
-    
-    setStudentProgressData(prev => ({
-      ...prev,
-      [currentSubjectKey]: newSkills
-    }));
+    let newSkills = currentSkills.includes(skillIndex) 
+      ? currentSkills.filter(i => i !== skillIndex) 
+      : [...currentSkills, skillIndex];
+      
+    setStudentProgressData(prev => ({ ...prev, [currentSubjectKey]: newSkills }));
   };
 
   const exportToExcel = () => {
-    if (!students || students.length === 0) {
-      alert("No data to export.");
-      return;
-    }
-
+    if (!students || students.length === 0) { alert("No data to export."); return; }
     const workbook = XLSX.utils.book_new();
-
     const formatStudent = (s) => ({
-      Name: s.name,
-      Gender: s.gender,
-      IC: s.ic || '',
-      Class: s.className || '',
-      Subject: s.subject || '',
-      Program: s.program === 'mbk' ? (s.mbkType || 'MBK') : 'Pemulihan',
-      Status: s.status,
-      Remarks: s.remarks || '',
-      DocLink: s.docLink || ''
+      Name: s.name, Gender: s.gender, IC: s.ic || '', Class: s.className || '', Subject: s.subject || '',
+      Program: s.program === 'mbk' ? (s.mbkType || 'MBK') : 'Pemulihan', Status: s.status, Remarks: s.remarks || '', DocLink: s.docLink || ''
     });
 
-    const addSheet = (data, name) => {
-      if (data.length > 0) {
-        const ws = XLSX.utils.json_to_sheet(data);
-        XLSX.utils.book_append_sheet(workbook, ws, name);
-      }
-    };
-
+    const addSheet = (data, name) => { if(data.length > 0) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), name); };
+    
     addSheet(students.filter(s => s.program === 'pemulihan' && s.status !== 'Lulus' && getStudentCurrentYear(s) <= 3).map(formatStudent), "Profile");
     addSheet(students.filter(s => s.program === 'pemulihan' && s.status !== 'Lulus' && getStudentCurrentYear(s) >= 4 && getStudentCurrentYear(s) <= 6).map(formatStudent), "PLaN");
     addSheet(students.filter(s => s.program === 'mbk').map(formatStudent), "MBK");
     addSheet(students.filter(s => s.status === 'Lulus').map(s => ({ ...formatStudent(s), GraduationDate: s.graduationDate || '' })), "Lulus");
-
+    
     XLSX.writeFile(workbook, "Student_Database.xlsx");
   };
 
-  const confirmDelete = (student) => {
-    if (!user || role !== 'admin') return;
-    setDeleteConfirmation({ isOpen: true, studentId: student.id, studentName: student.name });
-  };
-
   const executeDelete = async () => {
-    const id = deleteConfirmation.studentId;
-    if (!user || role !== 'admin' || !id || !db) return;
+    if (!user || role !== 'admin' || !deleteConfirmation.studentId || !db) return;
     try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id));
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', deleteConfirmation.studentId));
       setDeleteConfirmation({ isOpen: false, studentId: null, studentName: '' });
     } catch (err) { console.error("Error deleting:", err); }
-  };
-
-  const openAttendanceModal = (student) => {
-    setSelectedStudentForAttendance(student);
-    setAttendanceDate(new Date().toISOString().split('T')[0]);
-    setIsAttendanceModalOpen(true);
   };
 
   const markAttendance = async (status) => {
@@ -705,23 +627,17 @@ export default function StudentDatabaseApp() {
       }
       await updateDoc(ref, { attendanceRecords: arrayUnion(newRecord) });
       
-      // Auto close upon success
-      setIsAttendanceModalOpen(false);
+      setIsAttendanceModalOpen(false); 
     } catch (err) { console.error("Error marking attendance:", err); }
   };
 
   const deleteAttendanceRecord = async (record) => {
     if (!user || !selectedStudentForAttendance || !db) return;
-    try {
-      const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForAttendance.id);
-      await updateDoc(ref, { attendanceRecords: arrayRemove(record) });
+    try { 
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForAttendance.id), { 
+        attendanceRecords: arrayRemove(record) 
+      }); 
     } catch (err) { console.error("Error deleting record:", err); }
-  };
-
-  const openNotesModal = (student) => {
-    setSelectedStudentForNotes(student);
-    setNoteForm({ id: null, text: '', date: new Date().toISOString().split('T')[0] });
-    setIsNotesModalOpen(true);
   };
 
   const saveNote = async (e) => {
@@ -729,7 +645,6 @@ export default function StudentDatabaseApp() {
     if (!user || !selectedStudentForNotes || !db) return;
     const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForNotes.id);
     let newNotes = [...(selectedStudentForNotes.notes || [])];
-    
     if (noteForm.id) {
       newNotes = newNotes.map(n => n.id === noteForm.id ? { ...n, text: noteForm.text, date: noteForm.date } : n);
     } else {
@@ -760,42 +675,13 @@ export default function StudentDatabaseApp() {
     setNoteForm({ id: note.id, text: note.text, date: note.date });
   };
 
-  const handleClassNameChange = (e) => {
-    let val = e.target.value.toUpperCase();
-    val = val.replace(/^(\d)([A-Z])/, '$1 $2');
-    setFormData({ ...formData, className: val });
-  };
-
-  const handleCheckOKU = (ic) => {
-    if (!ic) return;
-    const textArea = document.createElement("textarea");
-    textArea.value = ic; 
-    document.body.appendChild(textArea); 
-    textArea.select();
-    try { 
-      document.execCommand('copy'); 
-    } catch (err) { 
-      console.error('Copy failed', err); 
-    }
-    document.body.removeChild(textArea);
-    window.open('https://oku.jkm.gov.my/semakan_oku', '_blank');
-  };
-
-  const toggleStudentStatus = (student) => {
-    if (!user || role !== 'admin') return;
-    const newStatus = student.status === 'Lulus' ? 'Active' : 'Lulus';
-    setMoveDate(new Date().toISOString().split('T')[0]);
-    setMoveConfirmation({ isOpen: true, student: student, newStatus: newStatus });
-  };
-
   const executeMove = async () => {
-    const { student, newStatus } = moveConfirmation;
-    if (!user || role !== 'admin' || !student || !db) return;
+    if (!user || role !== 'admin' || !moveConfirmation.student || !db) return;
     try {
-      const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id);
-      const updates = { status: newStatus };
-      if (newStatus === 'Lulus') updates.graduationDate = moveDate; else updates.graduationDate = null;
-      await updateDoc(ref, updates);
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', moveConfirmation.student.id), { 
+        status: moveConfirmation.newStatus, 
+        graduationDate: moveConfirmation.newStatus === 'Lulus' ? moveDate : null 
+      });
       setMoveConfirmation({ isOpen: false, student: null, newStatus: '' });
     } catch (err) { console.error("Error updating status:", err); }
   };
@@ -816,120 +702,71 @@ export default function StudentDatabaseApp() {
     setFormData({ name: '', program: currentSection === 'mbk' ? 'mbk' : 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: 'Lelaki', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false, qrCodeUrl: '' });
     setIsModalOpen(true);
   };
+  
+  const openNotesModal = (student) => {
+    setSelectedStudentForNotes(student);
+    setNoteForm({ id: null, text: '', date: new Date().toISOString().split('T')[0] });
+    setIsNotesModalOpen(true);
+  };
+
+  const openAttendanceModal = (student) => {
+    setSelectedStudentForAttendance(student);
+    setAttendanceDate(new Date().toISOString().split('T')[0]);
+    setIsAttendanceModalOpen(true);
+  };
+
+  const handleCheckOKU = (ic) => {
+    if (!ic) return;
+    const textArea = document.createElement("textarea");
+    textArea.value = ic; 
+    document.body.appendChild(textArea); 
+    textArea.select();
+    try { document.execCommand('copy'); } catch (err) { console.error('Copy failed', err); }
+    document.body.removeChild(textArea);
+    window.open('https://oku.jkm.gov.my/semakan_oku', '_blank');
+  };
+
+  const toggleStudentStatus = (student) => {
+    setMoveDate(new Date().toISOString().split('T')[0]);
+    setMoveConfirmation({ isOpen: true, student: student, newStatus: student.status === 'Lulus' ? 'Active' : 'Lulus' });
+  };
+
 
   // --- Filtering & Derived State ---
-  
   const availableYears = useMemo(() => {
-    const pemulihanStudents = students.filter(s => (!s.program || s.program === 'pemulihan'));
-    const years = new Set(pemulihanStudents.map(s => getYearFromClassString(s.className)).filter(y => y !== null));
-    return ['All', ...Array.from(years).sort()];
+    const years = students.filter(s => s.program === 'pemulihan').map(s => getYearFromClassString(s.className)).filter(y => y !== null);
+    return ['All', ...Array.from(new Set(years)).sort()];
   }, [students]);
 
   const availableClasses = useMemo(() => {
-    const pemulihanStudents = students.filter(s => (!s.program || s.program === 'pemulihan'));
-    const classes = new Set(pemulihanStudents.map(s => s.className).filter(Boolean));
-    return ['All', ...Array.from(classes).sort()];
+    const classes = students.filter(s => s.program === 'pemulihan').map(s => s.className).filter(Boolean);
+    return ['All', ...Array.from(new Set(classes)).sort()];
   }, [students]);
-
-  const groupedProfileStudents = useMemo(() => {
-    if (currentSection !== 'profile') return {};
-    const profileStudents = students.filter(s => {
-      const program = s.program || 'pemulihan';
-      if (program !== 'pemulihan') return false; 
-      if (s.status === 'Lulus') return false;
-      const studentYear = getStudentCurrentYear(s);
-      if (studentYear > 3) return false;
-      
-      const matchesYear = profileYearFilter === 'All' || studentYear === parseInt(profileYearFilter);
-      const matchesClass = classFilter === 'All' || s.className === classFilter;
-      const matchesSubject = subjectFilter === 'All' || s.subject === subjectFilter;
-      
-      return matchesYear && matchesClass && matchesSubject;
-    });
-    
-    const groups = {};
-    profileStudents.forEach(student => {
-      const cls = student.className || 'No Class';
-      if (!groups[cls]) groups[cls] = [];
-      groups[cls].push(student);
-    });
-    return groups;
-  }, [students, currentSection, profileYearFilter, classFilter, subjectFilter]);
-
-  const groupedPlanStudents = useMemo(() => {
-    if (currentSection !== 'plan') return {};
-
-    const planStudents = students.filter(s => {
-      const program = s.program || 'pemulihan';
-      if (program !== 'pemulihan') return false;
-      if (s.status === 'Lulus') return false;
-
-      const studentYear = getStudentCurrentYear(s);
-      if (studentYear < 4 || studentYear > 6) return false;
-
-      return true; 
-    });
-
-    const groups = {};
-    planStudents.forEach(student => {
-      const year = getStudentCurrentYear(student);
-      const groupKey = `Tahun ${year}`;
-      if (!groups[groupKey]) groups[groupKey] = [];
-      groups[groupKey].push(student);
-    });
-    return groups;
-  }, [students, currentSection]);
-
-  const groupedLulusStudents = useMemo(() => {
-    if (currentSection !== 'lulus') return {};
-    const groups = {};
-    const lulusStudents = students.filter(s => s.status === 'Lulus' && (!s.program || s.program === 'pemulihan'));
-    lulusStudents.forEach(student => {
-      const currentYearNum = calculateCurrentLulusYear(student.className, student.graduationDate);
-      const groupKey = `Tahun ${currentYearNum}`;
-      if (!groups[groupKey]) groups[groupKey] = { yearNum: currentYearNum, students: [] };
-      groups[groupKey].students.push(student);
-    });
-    return groups;
-  }, [students, currentSection]);
 
   const filteredStudents = useMemo(() => {
     return students.filter(s => {
+      const year = getStudentCurrentYear(s);
       const program = s.program || 'pemulihan';
-
+      
       if (currentSection === 'mbk') {
-        if (program !== 'mbk') return false;
-        const schoolYear = calculateSchoolYearFromIC(s.ic); 
-        if (schoolYear !== null && schoolYear > 6) return false; 
-        
-        const matchSearch = profileYearFilter === 'All' || profileYearFilter === '' || (s.name || '').toLowerCase().includes(profileYearFilter.toLowerCase());
-        const matchType = mbkTypeFilter === 'All' || s.mbkType === mbkTypeFilter;
-        return matchSearch && matchType;
+        return program === 'mbk' && year <= 6 && 
+               (profileYearFilter === 'All' || profileYearFilter === '' || (s.name || '').toLowerCase().includes(profileYearFilter.toLowerCase())) &&
+               (mbkTypeFilter === 'All' || s.mbkType === mbkTypeFilter);
       }
       
       if (currentSection === 'progress') {
-         if (s.program !== 'pemulihan' || s.status === 'Lulus') return false;
-         const studentYear = getStudentCurrentYear(s);
-         if (studentYear > 3) return false; // Filter out PLaN
-         
-         const matchesYear = profileYearFilter === 'All' || studentYear === parseInt(profileYearFilter);
-         const matchesClass = classFilter === 'All' || s.className === classFilter;
-         const matchesSubject = subjectFilter === 'All' || s.subject === subjectFilter;
-         const matchesSearch = searchQuery === '' || (s.name || '').toLowerCase().includes(searchQuery.toLowerCase());
-         
-         return matchesYear && matchesClass && matchesSubject && matchesSearch;
+         if (program !== 'pemulihan' || s.status === 'Lulus' || year > 3) return false; 
+         return (profileYearFilter === 'All' || year === parseInt(profileYearFilter)) &&
+                (classFilter === 'All' || s.className === classFilter) &&
+                (subjectFilter === 'All' || s.subject === subjectFilter) &&
+                (searchQuery === '' || (s.name || '').toLowerCase().includes(searchQuery.toLowerCase()));
       }
 
       if (currentSection === 'stats') {
-        if (program === 'mbk' || s.status === 'Lulus') return false;
+        if (program === 'mbk' || s.status === 'Lulus' || year > 3) return false;
         
-        const studentYearCalc = getStudentCurrentYear(s);
-        if (studentYearCalc > 3) return false;
-
-        const studentYear = getYearFromClassString(s.className);
         const filterYear = parseInt(statsFilters.year);
-        
-        const matchYear = statsFilters.year === 'All' || (studentYear !== null && studentYear === filterYear);
+        const matchYear = statsFilters.year === 'All' || (year === filterYear);
         const matchGender = statsFilters.gender === 'All' || (s.gender || 'Lelaki') === statsFilters.gender;
         const matchSubject = statsFilters.subject === 'All' || s.subject === statsFilters.subject;
         
@@ -939,29 +776,65 @@ export default function StudentDatabaseApp() {
     });
   }, [students, profileYearFilter, classFilter, subjectFilter, currentSection, statsFilters, searchQuery, mbkTypeFilter]);
 
+  // Groupings for main tabs
+  const groupedProfileStudents = useMemo(() => {
+    if (currentSection !== 'profile') return {};
+    const groups = {};
+    students.filter(s => {
+      const year = getStudentCurrentYear(s);
+      return (s.program || 'pemulihan') === 'pemulihan' && s.status !== 'Lulus' && year <= 3 && 
+        (profileYearFilter === 'All' || year === parseInt(profileYearFilter)) &&
+        (classFilter === 'All' || s.className === classFilter) &&
+        (subjectFilter === 'All' || s.subject === subjectFilter)
+    }).forEach(s => { 
+        const clsName = s.className || 'No Class';
+        if (!groups[clsName]) groups[clsName] = []; 
+        groups[clsName].push(s); 
+    });
+    return groups;
+  }, [students, currentSection, profileYearFilter, classFilter, subjectFilter]);
+
+  const groupedPlanStudents = useMemo(() => {
+    if (currentSection !== 'plan') return {};
+    const groups = {};
+    students.filter(s => {
+      const year = getStudentCurrentYear(s);
+      return (s.program || 'pemulihan') === 'pemulihan' && s.status !== 'Lulus' && year >= 4 && year <= 6;
+    }).forEach(s => { 
+        const k = `Tahun ${getStudentCurrentYear(s)}`; 
+        if (!groups[k]) groups[k] = []; 
+        groups[k].push(s); 
+    });
+    return groups;
+  }, [students, currentSection]);
+
+  const groupedLulusStudents = useMemo(() => {
+    if (currentSection !== 'lulus') return {};
+    const groups = {};
+    students.filter(s => s.status === 'Lulus').forEach(s => { 
+      const k = `Tahun ${calculateCurrentLulusYear(s.className, s.graduationDate)}`; 
+      if (!groups[k]) groups[k] = { students: [] }; 
+      groups[k].students.push(s); 
+    });
+    return groups;
+  }, [students, currentSection]);
 
   // --- Reusable Student Card Renderer ---
   const renderStudentCard = (student, sectionType) => {
     const isMbk = sectionType === 'mbk';
     const isLulus = sectionType === 'lulus';
     const isProfile = sectionType === 'profile';
-    const isPlan = sectionType === 'plan';
     
     const year = getStudentCurrentYear(student);
     const stats = calculateStats(student.attendanceRecords || []);
     const isSelected = selectedAdminStudent === student.id;
 
-    let themeColor = 'blue';
     let gradientClass = 'from-blue-400 to-blue-600';
-    
     if (isLulus) {
-        themeColor = 'purple';
         gradientClass = 'from-purple-400 to-purple-600';
     } else if (isMbk) {
-        themeColor = 'indigo';
         gradientClass = 'from-indigo-400 to-indigo-600';
     } else if (isProfile) {
-        themeColor = stats.percent >= 75 ? 'emerald' : 'amber';
         gradientClass = stats.percent >= 75 ? 'from-emerald-400 to-emerald-600' : 'from-amber-400 to-amber-600';
     }
 
@@ -1120,8 +993,7 @@ export default function StudentDatabaseApp() {
     );
   };
 
-
-  // --- Main App Render ---
+  // --- Main App Render Return ---
   return (
     <div className={`min-h-screen transition-colors duration-300 font-sans selection:bg-indigo-200 dark:selection:bg-indigo-900 ${isDarkMode ? 'dark bg-slate-900 text-slate-200' : 'bg-gradient-to-br from-slate-50 to-slate-100 text-slate-800'}`}>
       
@@ -1781,7 +1653,7 @@ export default function StudentDatabaseApp() {
             <h5 className={`text-sm font-bold mb-3 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}><Clock size={16} /> History</h5>
             <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
               {selectedStudentForNotes?.notes && selectedStudentForNotes.notes.length > 0 ? (
-                [...selectedStudentForNotes.notes].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((n)=>(
+                [...(selectedStudentForNotes.notes || [])].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((n)=>(
                 <div key={n.id} className={`p-3 border rounded-xl text-sm group relative transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
                   <div className="flex justify-between items-start mb-1">
                     <span className={`text-xs font-bold px-2 py-0.5 rounded border ${isDarkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-white text-gray-500 border-gray-200'}`}>{n.date}</span>
@@ -1837,7 +1709,7 @@ export default function StudentDatabaseApp() {
              <h5 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}><Clock size={14}/> Record History</h5>
              <div className={`max-h-48 overflow-y-auto border rounded-xl divide-y ${isDarkMode ? 'border-slate-700 divide-slate-700' : 'border-gray-100 divide-gray-100'}`}>
                 {selectedStudentForAttendance?.attendanceRecords?.length > 0 ? (
-                  [...selectedStudentForAttendance.attendanceRecords].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((r,i)=>(
+                  [...(selectedStudentForAttendance.attendanceRecords || [])].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((r,i)=>(
                   <div key={i} className={`py-3 px-4 flex justify-between items-center transition-colors ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}`}>
                     <span className={`font-medium text-sm ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>{r.date}</span>
                     <div className="flex items-center gap-3">
