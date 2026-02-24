@@ -356,27 +356,32 @@ export default function StudentDatabaseApp() {
   
   // Dark Mode Persistence
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('darkMode');
-      return saved !== null ? JSON.parse(saved) : false;
-    }
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('darkMode');
+        return saved !== null ? JSON.parse(saved) : false;
+      }
+    } catch(e) { return false; }
     return false;
   });
 
-  useEffect(() => { 
-    localStorage.setItem('darkMode', JSON.stringify(isDarkMode)); 
-  }, [isDarkMode]);
-
-  // Set Browser Title
+  // Browser Tab Name
   useEffect(() => { 
     document.title = "Pemulihan SJKC Sin Ming"; 
   }, []);
+
+  // Save Dark Mode Theme
+  useEffect(() => { 
+    try {
+      localStorage.setItem('darkMode', JSON.stringify(isDarkMode)); 
+    } catch(e) {}
+  }, [isDarkMode]);
 
   // Filters
   const [profileYearFilter, setProfileYearFilter] = useState('All');
   const [classFilter, setClassFilter] = useState('All');
   const [subjectFilter, setSubjectFilter] = useState('All');
-  const [mbkTypeFilter, setMbkTypeFilter] = useState('All'); // THE FIX: This was missing previously!
+  const [mbkTypeFilter, setMbkTypeFilter] = useState('All');
   const [statsFilters, setStatsFilters] = useState({ year: 'All', gender: 'All', subject: 'All' });
 
   // Auth & Modals
@@ -592,14 +597,19 @@ export default function StudentDatabaseApp() {
   };
 
   const exportToExcel = () => {
-    if (!students || students.length === 0) { alert("No data to export."); return; }
+    if (!students || students.length === 0) { 
+      alert("No data to export."); 
+      return; 
+    }
     const workbook = XLSX.utils.book_new();
     const formatStudent = (s) => ({
       Name: s.name, Gender: s.gender, IC: s.ic || '', Class: s.className || '', Subject: s.subject || '',
       Program: s.program === 'mbk' ? (s.mbkType || 'MBK') : 'Pemulihan', Status: s.status, Remarks: s.remarks || '', DocLink: s.docLink || ''
     });
 
-    const addSheet = (data, name) => { if(data.length > 0) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), name); };
+    const addSheet = (data, name) => { 
+      if(data.length > 0) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), name); 
+    };
     
     addSheet(students.filter(s => s.program === 'pemulihan' && s.status !== 'Lulus' && getStudentCurrentYear(s) <= 3).map(formatStudent), "Profile");
     addSheet(students.filter(s => s.program === 'pemulihan' && s.status !== 'Lulus' && getStudentCurrentYear(s) >= 4 && getStudentCurrentYear(s) <= 6).map(formatStudent), "PLaN");
@@ -716,17 +726,6 @@ export default function StudentDatabaseApp() {
     setIsAttendanceModalOpen(true);
   };
 
-  const handleCheckOKU = (ic) => {
-    if (!ic) return;
-    const textArea = document.createElement("textarea");
-    textArea.value = ic; 
-    document.body.appendChild(textArea); 
-    textArea.select();
-    try { document.execCommand('copy'); } catch (err) { console.error('Copy failed', err); }
-    document.body.removeChild(textArea);
-    window.open('https://oku.jkm.gov.my/semakan_oku', '_blank');
-  };
-
   const toggleStudentStatus = (student) => {
     setMoveDate(new Date().toISOString().split('T')[0]);
     setMoveConfirmation({ isOpen: true, student: student, newStatus: student.status === 'Lulus' ? 'Active' : 'Lulus' });
@@ -819,6 +818,7 @@ export default function StudentDatabaseApp() {
     });
     return groups;
   }, [students, currentSection]);
+
 
   // --- Reusable Student Card Renderer ---
   const renderStudentCard = (student, sectionType) => {
