@@ -11,6 +11,7 @@ import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot
 import * as XLSX from 'xlsx';
 
 // --- Firebase Configuration ---
+// Hardcoded config restored to prevent initialization crashes on Vercel
 const firebaseConfig = {
   apiKey: "AIzaSyDm56Tm6lr00XIHTIMSLiiLe1c6vfV1_vo",
   authDomain: "student-db-v2.firebaseapp.com",
@@ -45,6 +46,7 @@ const KEMAHIRAN_MATH = [
 
 const subjects = ['Pemulihan BM', 'Pemulihan Matematik', 'Pemulihan BM dan Matematik'];
 const cardColors = ['bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-orange-500', 'bg-pink-500', 'bg-indigo-500'];
+
 
 // --- UI Components ---
 const RetroProgressBar = ({ progress }) => (
@@ -481,6 +483,7 @@ export default function StudentDatabaseApp() {
     setStudentProgressData(prev => ({ ...prev, [currentSubjectKey]: newSkills }));
   };
 
+  // Renamed to exportToExcel, making sure it perfectly matches the button onClick
   const exportToExcel = () => {
     if (!students || students.length === 0) { alert("No data to export."); return; }
     const workbook = XLSX.utils.book_new();
@@ -615,7 +618,7 @@ export default function StudentDatabaseApp() {
   }, [students]);
 
   const availableClasses = useMemo(() => {
-    return ['All', ...Array.from(new Set(students.filter(s => s.program === 'pemulihan').map(s => s.className).filter(Boolean))).sort()];
+    return ['All', ...Array.from(new Set(students.filter(s => s.program === 'pemulihan').map(s => s.className).filter(Boolean)))].sort();
   }, [students]);
 
   const filteredStudents = useMemo(() => {
@@ -1072,7 +1075,7 @@ export default function StudentDatabaseApp() {
           <button className="w-full py-2 bg-amber-600 text-white font-bold rounded hover:bg-amber-700">{noteForm.id?'Update':'Add'} Note</button>
         </form>
         <div className="mt-4 max-h-40 overflow-auto space-y-2">
-          {selectedStudentForNotes?.notes?.sort((a,b)=>new Date(b.date)-new Date(a.date)).map(n=>(
+          {[...(selectedStudentForNotes?.notes || [])].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(n=>(
             <div key={n.id} className="p-3 bg-slate-50 border rounded text-sm group relative"><span className="font-bold text-slate-500 bg-white px-2 py-0.5 rounded border mr-2">{n.date}</span><p className="mt-2 whitespace-pre-wrap text-slate-700">{n.text}</p>
               <div className="absolute top-2 right-2 hidden group-hover:flex gap-1 bg-white/90 p-1 shadow-sm rounded"><button onClick={()=>startEditNote(n)} className="p-1"><Edit2 size={14} className="text-blue-500"/></button><button onClick={()=>deleteNote(n.id)} className="p-1"><Trash2 size={14} className="text-red-500"/></button></div>
             </div>
@@ -1086,7 +1089,7 @@ export default function StudentDatabaseApp() {
          <input type="date" className="w-full p-2 border rounded mb-3 focus:ring-2 outline-none" value={attendanceDate} onChange={e=>setAttendanceDate(e.target.value)}/>
          <div className="flex gap-2 mb-4"><button onClick={()=>markAttendance('present')} className="flex-1 flex items-center justify-center gap-1 py-2 bg-emerald-100 text-emerald-700 font-bold rounded hover:bg-emerald-200"><Check size={16}/> Present</button><button onClick={()=>markAttendance('absent')} className="flex-1 flex items-center justify-center gap-1 py-2 bg-red-100 text-red-700 font-bold rounded hover:bg-red-200"><X size={16}/> Absent</button></div>
          <div className="max-h-40 overflow-auto divide-y">
-            {selectedStudentForAttendance?.attendanceRecords?.sort((a,b)=>new Date(b.date)-new Date(a.date)).map((r,i)=>(
+            {[...(selectedStudentForAttendance?.attendanceRecords || [])].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((r,i)=>(
               <div key={i} className="py-2 flex justify-between items-center"><span className="font-medium text-sm text-slate-700">{r.date}</span><div className="flex gap-3 items-center"><span className={`text-xs font-bold px-2 py-0.5 rounded uppercase ${r.status==='present'?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-700'}`}>{r.status}</span><button onClick={()=>deleteAttendanceRecord(r)}><Trash2 size={14} className="text-slate-400 hover:text-red-500"/></button></div></div>
             ))}
          </div>
