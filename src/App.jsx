@@ -6,21 +6,25 @@ import {
   FileText, ZoomIn, ZoomOut, Sparkles, QrCode, TrendingUp, Save, Search, ChevronDown, Menu
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 
 // --- Firebase Configuration ---
-let app, auth, db, appId;
-try {
-  const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{"apiKey":"dummy"}');
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-} catch (e) {
-  console.error("Firebase Config Error:", e);
-}
+// Restored your exact configuration so it works perfectly on Vercel
+const firebaseConfig = {
+  apiKey: "AIzaSyDm56Tm6lr00XIHTIMSLiiLe1c6vfV1_vo",
+  authDomain: "student-db-v2.firebaseapp.com",
+  projectId: "student-db-v2",
+  storageBucket: "student-db-v2.firebasestorage.app",
+  messagingSenderId: "480502571708",
+  appId: "1:480502571708:web:7707c9db995a53da9b66b9"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = 'my-school-database';
 
 // --- Constants ---
 const KEMAHIRAN_BM = [
@@ -42,6 +46,7 @@ const KEMAHIRAN_MATH = [
 
 const subjects = ['Pemulihan BM', 'Pemulihan Matematik', 'Pemulihan BM dan Matematik'];
 const cardColors = ['bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-orange-500', 'bg-pink-500', 'bg-indigo-500'];
+
 
 // --- UI Components ---
 const RetroProgressBar = ({ progress }) => (
@@ -77,11 +82,21 @@ const ImageAdjuster = ({ imageSrc, onSave, onCancel, title = "Adjust Photo" }) =
   const imageRef = useRef(null);
   const containerRef = useRef(null);
 
-  const handleMouseDown = (e) => { setIsDragging(true); setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y }); };
-  const handleMouseMove = (e) => { if (isDragging) setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y }); };
+  const handleMouseDown = (e) => { 
+    setIsDragging(true); 
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y }); 
+  };
+  const handleMouseMove = (e) => { 
+    if (isDragging) setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y }); 
+  };
   const handleMouseUp = () => setIsDragging(false);
-  const handleTouchStart = (e) => { setIsDragging(true); setDragStart({ x: e.touches[0].clientX - position.x, y: e.touches[0].clientY - position.y }); };
-  const handleTouchMove = (e) => { if (isDragging) setPosition({ x: e.touches[0].clientX - dragStart.x, y: e.touches[0].clientY - dragStart.y }); };
+  const handleTouchStart = (e) => { 
+    setIsDragging(true); 
+    setDragStart({ x: e.touches[0].clientX - position.x, y: e.touches[0].clientY - position.y }); 
+  };
+  const handleTouchMove = (e) => { 
+    if (isDragging) setPosition({ x: e.touches[0].clientX - dragStart.x, y: e.touches[0].clientY - dragStart.y }); 
+  };
 
   const handleSave = () => {
     const canvas = canvasRef.current;
@@ -92,12 +107,14 @@ const ImageAdjuster = ({ imageSrc, onSave, onCancel, title = "Adjust Photo" }) =
     canvas.height = size;
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, size, size);
+    
     const containerSize = containerRef.current.clientWidth;
     const ratio = size / containerSize;
     const drawX = (position.x * ratio) + (size / 2) - ((img.width * scale * ratio) / 2);
     const drawY = (position.y * ratio) + (size / 2) - ((img.height * scale * ratio) / 2);
     const drawWidth = img.width * scale * ratio;
     const drawHeight = img.height * scale * ratio;
+    
     ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
     onSave(canvas.toDataURL('image/jpeg', 0.8));
   };
@@ -116,7 +133,14 @@ const ImageAdjuster = ({ imageSrc, onSave, onCancel, title = "Adjust Photo" }) =
             onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
             onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleMouseUp}
           >
-            <img ref={imageRef} src={imageSrc} alt="Edit" className="absolute max-w-none origin-center pointer-events-none select-none" style={{ transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px) scale(${scale})`, left: '50%', top: '50%' }} draggable="false" />
+            <img 
+              ref={imageRef} 
+              src={imageSrc} 
+              alt="Edit" 
+              className="absolute max-w-none origin-center pointer-events-none select-none" 
+              style={{ transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px) scale(${scale})`, left: '50%', top: '50%' }} 
+              draggable="false" 
+            />
             <div className="absolute inset-0 border-2 border-indigo-500/30 rounded-xl pointer-events-none"></div>
           </div>
           <div className="w-full flex items-center gap-3 text-slate-500">
@@ -140,7 +164,9 @@ const ImageViewer = ({ src, onClose }) => {
   if (!src) return null;
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 cursor-zoom-out animate-in fade-in duration-200" onClick={onClose}>
-       <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors"><X size={32} /></button>
+       <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
+         <X size={32} />
+       </button>
        <img src={src} alt="Full Screen" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
     </div>
   );
@@ -148,8 +174,10 @@ const ImageViewer = ({ src, onClose }) => {
 
 const Avatar = ({ name, color, photoUrl, size = "w-12 h-12", onClick }) => {
   const commonClasses = `${size} rounded-xl shadow-sm border-2 border-white ring-1 ring-gray-100 flex-shrink-0 ${onClick ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`;
-  if (photoUrl) return <img src={photoUrl} alt={name} className={`${commonClasses} object-cover object-top bg-white`} onClick={onClick} />;
-  const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  if (photoUrl) {
+    return <img src={photoUrl} alt={name} className={`${commonClasses} object-cover object-top bg-white`} onClick={onClick} />;
+  }
+  const initials = (name || '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   return <div className={`${commonClasses} flex items-center justify-center text-white font-bold shadow-sm ${color}`}>{initials}</div>;
 };
 
@@ -160,7 +188,9 @@ const Modal = ({ isOpen, onClose, title, children }) => {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 fade-in">
         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
           <h3 className="font-bold text-lg text-slate-800 tracking-tight">{title}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 rounded-full transition-colors"><XCircle size={24} /></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 rounded-full transition-colors">
+            <XCircle size={24} />
+          </button>
         </div>
         <div className="p-6">{children}</div>
       </div>
@@ -302,7 +332,10 @@ export default function StudentDatabaseApp() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
         setStudents(snapshot.docs.map(doc => ({ id: doc.id, attendanceRecords: [], notes: [], ...doc.data() })));
         setLoading(false);
-      }, (error) => { console.error("Firestore error:", error); setLoading(false); }
+      }, (error) => { 
+        console.error("Firestore error:", error); 
+        setLoading(false); 
+      }
     );
     return () => unsubscribe();
   }, [user]);
@@ -311,9 +344,12 @@ export default function StudentDatabaseApp() {
   const handleTabChange = (tabId) => {
     setCurrentSection(tabId);
     if (tabId !== 'progress') {
-       setProfileYearFilter('All'); setClassFilter('All'); setSubjectFilter('All');
+       setProfileYearFilter('All'); 
+       setClassFilter('All'); 
+       setSubjectFilter('All');
        if (tabId === 'mbk') setProfileYearFilter(''); 
-       setSelectedStudentForProgress(null); setSearchQuery('');
+       setSelectedStudentForProgress(null); 
+       setSearchQuery('');
     }
   };
 
@@ -331,8 +367,12 @@ export default function StudentDatabaseApp() {
     e.preventDefault();
     try {
         await signInWithEmailAndPassword(auth, "admin@pemulihan.com", adminPassword);
-        setShowAdminLogin(false); setAdminPassword(''); setLoginError('');
-    } catch (error) { setLoginError('Incorrect password or account not setup.'); }
+        setShowAdminLogin(false); 
+        setAdminPassword(''); 
+        setLoginError('');
+    } catch (error) { 
+        setLoginError('Incorrect password or account not setup.'); 
+    }
   };
 
   const handleImageUpload = (e, type = 'profile') => {
@@ -346,8 +386,15 @@ export default function StudentDatabaseApp() {
   };
   
   const handleCropSave = (croppedImageBase64) => {
-    if (uploadType === 'profile') setFormData(prev => ({ ...prev, photoUrl: croppedImageBase64 }));
-    else setFormData(prev => ({ ...prev, qrCodeUrl: croppedImageBase64 }));
+    if (uploadType === 'profile') {
+      setFormData(prev => ({ ...prev, photoUrl: croppedImageBase64 }));
+    } else {
+      setFormData(prev => ({ ...prev, qrCodeUrl: croppedImageBase64 }));
+    }
+    setRawImageSrc(null);
+  };
+
+  const handleCropCancel = () => {
     setRawImageSrc(null);
   };
 
@@ -361,27 +408,45 @@ export default function StudentDatabaseApp() {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!user || !db) return;
+    if (!formData.gender) { alert("Please select a gender (Jantina) before saving."); return; }
     
     try {
       const dataToSave = {
-        name: formData.name, program: formData.program, gender: formData.gender, status: formData.status,
-        photoUrl: formData.photoUrl || '', updatedAt: serverTimestamp(), ic: formData.ic || '', isNewStudent: formData.isNewStudent || false
+        name: formData.name, 
+        program: formData.program, 
+        gender: formData.gender, 
+        status: formData.status,
+        photoUrl: formData.photoUrl || '', 
+        updatedAt: serverTimestamp(), 
+        ic: formData.ic || '', 
+        isNewStudent: formData.isNewStudent || false
       };
       
       if (formData.program === 'pemulihan') {
-        dataToSave.className = formData.className; dataToSave.subject = formData.subject;
-        dataToSave.mbkType = ''; dataToSave.remarks = ''; dataToSave.docLink = ''; dataToSave.qrCodeUrl = '';
+        dataToSave.className = formData.className; 
+        dataToSave.subject = formData.subject;
+        dataToSave.mbkType = ''; 
+        dataToSave.remarks = ''; 
+        dataToSave.docLink = ''; 
+        dataToSave.qrCodeUrl = '';
       } else {
-        dataToSave.mbkType = formData.mbkType; dataToSave.remarks = formData.remarks || ''; 
-        dataToSave.docLink = formData.docLink || ''; dataToSave.qrCodeUrl = formData.qrCodeUrl || '';
-        dataToSave.className = ''; dataToSave.subject = '';
+        dataToSave.mbkType = formData.mbkType; 
+        dataToSave.remarks = formData.remarks || ''; 
+        dataToSave.docLink = formData.docLink || ''; 
+        dataToSave.qrCodeUrl = formData.qrCodeUrl || '';
+        dataToSave.className = ''; 
+        dataToSave.subject = '';
       }
 
       if (editingId) {
         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', editingId), dataToSave);
       } else {
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), {
-          ...dataToSave, attendanceRecords: [], notes: [], color: cardColors[Math.floor(Math.random() * cardColors.length)], createdAt: serverTimestamp()
+          ...dataToSave, 
+          attendanceRecords: [], 
+          notes: [], 
+          color: cardColors[Math.floor(Math.random() * cardColors.length)], 
+          createdAt: serverTimestamp()
         });
       }
       setIsModalOpen(false); 
@@ -392,15 +457,23 @@ export default function StudentDatabaseApp() {
   const handleProgressUpdate = async () => {
     if (!user || !selectedStudentForProgress || !db) return;
     try {
-       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForProgress.id), { progress: studentProgressData });
+       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForProgress.id), { 
+         progress: studentProgressData 
+       });
        alert("Progress saved successfully!");
-    } catch (err) { console.error("Error saving progress:", err); alert("Failed to save progress."); }
+    } catch (err) { 
+       console.error("Error saving progress:", err); 
+       alert("Failed to save progress."); 
+    }
   };
   
   const toggleSkill = (skillIndex) => {
     const currentSubjectKey = progressSubject === 'BM' ? 'bm' : 'math';
     const currentSkills = studentProgressData[currentSubjectKey] || [];
-    let newSkills = currentSkills.includes(skillIndex) ? currentSkills.filter(i => i !== skillIndex) : [...currentSkills, skillIndex];
+    let newSkills = currentSkills.includes(skillIndex) 
+      ? currentSkills.filter(i => i !== skillIndex) 
+      : [...currentSkills, skillIndex];
+      
     setStudentProgressData(prev => ({ ...prev, [currentSubjectKey]: newSkills }));
   };
 
@@ -444,8 +517,11 @@ export default function StudentDatabaseApp() {
 
   const deleteAttendanceRecord = async (record) => {
     if (!user || !selectedStudentForAttendance || !db) return;
-    try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForAttendance.id), { attendanceRecords: arrayRemove(record) }); } 
-    catch (err) { console.error("Error deleting record:", err); }
+    try { 
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForAttendance.id), { 
+        attendanceRecords: arrayRemove(record) 
+      }); 
+    } catch (err) { console.error("Error deleting record:", err); }
   };
 
   const saveNote = async (e) => {
@@ -453,8 +529,11 @@ export default function StudentDatabaseApp() {
     if (!user || !selectedStudentForNotes || !db) return;
     const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForNotes.id);
     let newNotes = [...(selectedStudentForNotes.notes || [])];
-    if (noteForm.id) newNotes = newNotes.map(n => n.id === noteForm.id ? { ...n, text: noteForm.text, date: noteForm.date } : n);
-    else newNotes.push({ id: Date.now().toString(), text: noteForm.text, date: noteForm.date, timestamp: Date.now() });
+    if (noteForm.id) {
+      newNotes = newNotes.map(n => n.id === noteForm.id ? { ...n, text: noteForm.text, date: noteForm.date } : n);
+    } else {
+      newNotes.push({ id: Date.now().toString(), text: noteForm.text, date: noteForm.date, timestamp: Date.now() });
+    }
     
     try {
       await updateDoc(ref, { notes: newNotes });
@@ -466,8 +545,9 @@ export default function StudentDatabaseApp() {
     if (!user || !selectedStudentForNotes || !db) return;
     if (!window.confirm('Delete this note?')) return;
     const newNotes = (selectedStudentForNotes.notes || []).filter(n => n.id !== noteId);
-    try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForNotes.id), { notes: newNotes }); } 
-    catch (err) { console.error("Error deleting note:", err); }
+    try { 
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForNotes.id), { notes: newNotes }); 
+    } catch (err) { console.error("Error deleting note:", err); }
   };
 
   const executeMove = async () => {
@@ -497,17 +577,40 @@ export default function StudentDatabaseApp() {
     setFormData({ name: '', program: currentSection === 'mbk' ? 'mbk' : 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: 'Lelaki', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false, qrCodeUrl: '' });
     setIsModalOpen(true);
   };
+  
+  const openNotesModal = (student) => {
+    setSelectedStudentForNotes(student);
+    setNoteForm({ id: null, text: '', date: new Date().toISOString().split('T')[0] });
+    setIsNotesModalOpen(true);
+  };
+
+  const openAttendanceModal = (student) => {
+    setSelectedStudentForAttendance(student);
+    setAttendanceDate(new Date().toISOString().split('T')[0]);
+    setIsAttendanceModalOpen(true);
+  };
+  
+  const toggleStudentStatus = (student) => {
+    setMoveDate(new Date().toISOString().split('T')[0]);
+    setMoveConfirmation({ isOpen: true, student: student, newStatus: student.status === 'Lulus' ? 'Active' : 'Lulus' });
+  };
 
   // --- Filtering & Derived State ---
-  const availableYears = useMemo(() => ['All', ...Array.from(new Set(students.filter(s => s.program === 'pemulihan').map(s => getYearFromClassString(s.className)))).sort()], [students]);
-  const availableClasses = useMemo(() => ['All', ...Array.from(new Set(students.filter(s => s.program === 'pemulihan').map(s => s.className).filter(Boolean))).sort()], [students]);
+  const availableYears = useMemo(() => {
+    const years = students.filter(s => s.program === 'pemulihan').map(s => getYearFromClassString(s.className)).filter(y => y !== null);
+    return ['All', ...Array.from(new Set(years)).sort()];
+  }, [students]);
+
+  const availableClasses = useMemo(() => {
+    return ['All', ...Array.from(new Set(students.filter(s => s.program === 'pemulihan').map(s => s.className).filter(Boolean))).sort()];
+  }, [students]);
 
   const filteredStudents = useMemo(() => {
     return students.filter(s => {
       const year = getStudentCurrentYear(s);
       
       if (currentSection === 'mbk') {
-        return s.program === 'mbk' && year <= 6 && (profileYearFilter === 'All' || profileYearFilter === '' || s.name.toLowerCase().includes(profileYearFilter.toLowerCase()));
+        return s.program === 'mbk' && year <= 6 && (profileYearFilter === 'All' || profileYearFilter === '' || (s.name || '').toLowerCase().includes(profileYearFilter.toLowerCase()));
       }
       
       if (currentSection === 'progress') {
@@ -515,13 +618,13 @@ export default function StudentDatabaseApp() {
          return (profileYearFilter === 'All' || year === parseInt(profileYearFilter)) &&
                 (classFilter === 'All' || s.className === classFilter) &&
                 (subjectFilter === 'All' || s.subject === subjectFilter) &&
-                (searchQuery === '' || s.name.toLowerCase().includes(searchQuery.toLowerCase()));
+                (searchQuery === '' || (s.name || '').toLowerCase().includes(searchQuery.toLowerCase()));
       }
 
       if (currentSection === 'stats') {
         if (s.program === 'mbk' || s.status === 'Lulus' || year > 3) return false;
         return (statsFilters.year === 'All' || year === parseInt(statsFilters.year)) &&
-               (statsFilters.gender === 'All' || s.gender === statsFilters.gender) &&
+               (statsFilters.gender === 'All' || (s.gender || 'Lelaki') === statsFilters.gender) &&
                (statsFilters.subject === 'All' || s.subject === statsFilters.subject);
       }
       return false;
@@ -536,7 +639,11 @@ export default function StudentDatabaseApp() {
         (profileYearFilter === 'All' || getStudentCurrentYear(s) === parseInt(profileYearFilter)) &&
         (classFilter === 'All' || s.className === classFilter) &&
         (subjectFilter === 'All' || s.subject === subjectFilter)
-    ).forEach(s => { if (!groups[s.className]) groups[s.className] = []; groups[s.className].push(s); });
+    ).forEach(s => { 
+        const clsName = s.className || 'No Class';
+        if (!groups[clsName]) groups[clsName] = []; 
+        groups[clsName].push(s); 
+    });
     return groups;
   }, [students, currentSection, profileYearFilter, classFilter, subjectFilter]);
 
@@ -544,7 +651,11 @@ export default function StudentDatabaseApp() {
     if (currentSection !== 'plan') return {};
     const groups = {};
     students.filter(s => s.program === 'pemulihan' && s.status !== 'Lulus' && getStudentCurrentYear(s) >= 4 && getStudentCurrentYear(s) <= 6)
-            .forEach(s => { const k = `Tahun ${getStudentCurrentYear(s)}`; if (!groups[k]) groups[k] = []; groups[k].push(s); });
+            .forEach(s => { 
+                const k = `Tahun ${getStudentCurrentYear(s)}`; 
+                if (!groups[k]) groups[k] = []; 
+                groups[k].push(s); 
+            });
     return groups;
   }, [students, currentSection]);
 
@@ -567,7 +678,9 @@ export default function StudentDatabaseApp() {
     let maxDate = 0;
     list.forEach(s => {
       let t = 0;
-      try { if (s.updatedAt) t = s.updatedAt.toDate ? s.updatedAt.toDate().getTime() : new Date(s.updatedAt).getTime(); } catch(e){}
+      try { 
+         if (s.updatedAt) t = s.updatedAt.toDate ? s.updatedAt.toDate().getTime() : new Date(s.updatedAt).getTime(); 
+      } catch(e){}
       if (t > maxDate) maxDate = t;
     });
     return maxDate === 0 ? null : new Date(maxDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -585,9 +698,18 @@ export default function StudentDatabaseApp() {
     const stats = calculateStats(student.attendanceRecords || []);
     
     let themeColor = 'blue';
-    if (isLulus) themeColor = 'purple';
-    else if (isMbk) themeColor = 'indigo';
-    else if (isProfile) themeColor = stats.percent >= 75 ? 'emerald' : 'amber';
+    let gradientClass = 'from-blue-400 to-blue-600';
+    
+    if (isLulus) {
+        themeColor = 'purple';
+        gradientClass = 'from-purple-400 to-purple-600';
+    } else if (isMbk) {
+        themeColor = 'indigo';
+        gradientClass = 'from-indigo-400 to-indigo-600';
+    } else if (isProfile) {
+        themeColor = stats.percent >= 75 ? 'emerald' : 'amber';
+        gradientClass = stats.percent >= 75 ? 'from-emerald-400 to-emerald-600' : 'from-amber-400 to-amber-600';
+    }
 
     return (
       <div key={student.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-slate-200 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden flex flex-col">
@@ -642,7 +764,7 @@ export default function StudentDatabaseApp() {
 
         {/* === Mobile Layout (Compact Horizontal) === */}
         <div className="sm:hidden flex flex-row items-start p-3 gap-3 relative z-10">
-          <div className={`absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-${themeColor}-400 to-${themeColor}-600`}></div>
+          <div className={`absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b ${gradientClass}`}></div>
           
           <div className="flex flex-col items-center gap-2">
             <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={() => { if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
@@ -797,11 +919,11 @@ export default function StudentDatabaseApp() {
                     <div className="relative mb-6"><Search className="absolute left-4 top-3.5 text-slate-400 w-5 h-5" /><input type="text" placeholder="Search student name..." className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
                     <div className="space-y-2 max-h-[400px] overflow-y-auto">
                        {filteredStudents.map(student => (
-                         <button key={student.id} onClick={() => { setSelectedStudentForProgress(student); setStudentProgressData(student.progress || { bm: [], math: [] }); setProgressSubject(student.subject === 'Pemulihan Matematik' ? 'MATH' : 'BM'); }} className="w-full flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl hover:border-indigo-200 hover:shadow-md transition-all text-left group">
+                         <button key={student.id} onClick={() => { setSelectedStudentForProgress(student); setStudentProgressData(student.progress || { bm: [], math: [] }); setProgressSubject((student.subject || '').includes('Matematik') && !(student.subject || '').includes('BM') ? 'MATH' : 'BM'); }} className="w-full flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl hover:border-indigo-200 hover:shadow-md transition-all text-left group">
                             <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-10 h-10" /><div><h4 className="font-bold text-slate-800 group-hover:text-indigo-700">{student.name}</h4><p className="text-xs text-slate-500">{student.className}</p></div><ArrowRight size={16} className="ml-auto text-slate-300 group-hover:text-indigo-400" />
                          </button>
                        ))}
-                       {filteredStudents.length === 0 && <p className="text-slate-400 text-sm py-4">No students found.</p>}
+                       {filteredStudents.length === 0 && <p className="text-slate-400 text-sm py-4">No students found matching your search.</p>}
                     </div>
                   </div>
                </div>
@@ -992,7 +1114,7 @@ export default function StudentDatabaseApp() {
                   <span className="font-bold text-slate-700 flex items-center gap-2"><QrCode size={16}/> Kad OKU QR</span>
                   <div className="flex items-center gap-3">
                     {formData.qrCodeUrl && <button type="button" onClick={()=>handleRemovePhoto('qr')} className="text-red-500 text-xs hover:underline">Remove</button>}
-                    <label className="bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold text-xs hover:bg-indigo-200 transition-colors">Upload<input type="file" hidden accept="image/*" onChange={e=>handleImgUp(e,'qr')}/></label>
+                    <label className="bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg cursor-pointer font-bold text-xs hover:bg-indigo-200 transition-colors">Upload<input type="file" hidden accept="image/*" onChange={e=>handleImageUpload(e,'qr')}/></label>
                   </div>
                 </div>
               )}
