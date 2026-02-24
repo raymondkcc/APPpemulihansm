@@ -3,7 +3,7 @@ import {
   Users, Plus, Edit2, Trash2, Shield, Download, CheckCircle, XCircle, GraduationCap,
   BookOpen, PieChart, Camera, Lock, ArrowRight, RotateCcw, Calendar, Clock, Check, X,
   Filter, BarChart3, ArrowLeftRight, Accessibility, School, StickyNote, MessageSquare, 
-  FileText, ZoomIn, ZoomOut, Sparkles, QrCode, TrendingUp, Save, Search, ChevronDown, Menu
+  FileText, ZoomIn, ZoomOut, Sparkles, QrCode, TrendingUp, Save, Search, ChevronDown, Menu, ExternalLink
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
@@ -11,7 +11,6 @@ import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot
 import * as XLSX from 'xlsx';
 
 // --- Firebase Configuration ---
-// Restored your exact configuration so it works perfectly on Vercel
 const firebaseConfig = {
   apiKey: "AIzaSyDm56Tm6lr00XIHTIMSLiiLe1c6vfV1_vo",
   authDomain: "student-db-v2.firebaseapp.com",
@@ -595,6 +594,15 @@ export default function StudentDatabaseApp() {
     setMoveConfirmation({ isOpen: true, student: student, newStatus: student.status === 'Lulus' ? 'Active' : 'Lulus' });
   };
 
+  const handleCheckOKU = (ic) => {
+    if (!ic) return;
+    const textArea = document.createElement("textarea");
+    textArea.value = ic; document.body.appendChild(textArea); textArea.select();
+    try { document.execCommand('copy'); } catch (err) { console.error('Copy failed', err); }
+    document.body.removeChild(textArea);
+    window.open('https://oku.jkm.gov.my/semakan_oku', '_blank');
+  };
+
   // --- Filtering & Derived State ---
   const availableYears = useMemo(() => {
     const years = students.filter(s => s.program === 'pemulihan').map(s => getYearFromClassString(s.className)).filter(y => y !== null);
@@ -748,7 +756,13 @@ export default function StudentDatabaseApp() {
           </div>
           
           {isMbk && student.remarks && <div className="w-full mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2 text-left"><MessageSquare size={16} className="text-yellow-600 mt-0.5 flex-shrink-0" /><p className="text-xs text-slate-700 italic">{student.remarks}</p></div>}
-          {isMbk && <div className="mt-2 w-full pt-4 border-t border-slate-100 flex gap-2"><button onClick={() => window.open(student.docLink, '_blank')} disabled={!student.docLink} className={`flex-1 flex items-center justify-center gap-2 text-sm font-bold text-white py-2.5 rounded-xl transition-all shadow-sm ${student.docLink ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-300 cursor-not-allowed'}`}><FileText size={16} /> Docs</button></div>}
+          
+          {isMbk && (
+            <div className="mt-2 w-full pt-4 border-t border-slate-100 flex flex-col gap-2">
+              <button onClick={() => window.open(student.docLink, '_blank')} disabled={!student.docLink} className={`flex-1 flex items-center justify-center gap-2 text-sm font-bold text-white py-2.5 rounded-xl transition-all shadow-sm ${student.docLink ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-300 cursor-not-allowed'}`}><FileText size={16} /> Docs</button>
+              <button onClick={() => handleCheckOKU(student.ic)} className="flex-1 flex items-center justify-center gap-2 text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 py-2.5 rounded-xl transition-all shadow-sm"><Search size={16} /> Semakan OKU</button>
+            </div>
+          )}
 
           {/* Desktop Admin Hover Controls */}
           {role === 'admin' && (
@@ -804,6 +818,7 @@ export default function StudentDatabaseApp() {
             {isMbk && (
               <div className="mt-2 flex flex-col gap-1">
                  <button onClick={() => window.open(student.docLink, '_blank')} disabled={!student.docLink} className={`flex items-center justify-center gap-1 text-[10px] font-bold py-1 px-2 rounded border ${student.docLink ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}><FileText size={12} /> {student.docLink ? 'Docs' : 'No Docs'}</button>
+                 <button onClick={() => handleCheckOKU(student.ic)} className="flex items-center justify-center gap-1 text-[10px] font-bold py-1 px-2 rounded border bg-slate-900 text-white"><Search size={12} /> Semakan OKU</button>
                  {student.qrCodeUrl && <button onClick={() => setFullScreenImage(student.qrCodeUrl)} className="flex items-center justify-center gap-1 text-[10px] font-bold py-1 px-2 rounded border bg-emerald-50 text-emerald-600 border-emerald-100"><QrCode size={12} /> QR Code</button>}
               </div>
             )}
