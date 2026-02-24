@@ -1,70 +1,16 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
-  Users, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Shield, 
-  Download, 
-  CheckCircle, 
-  XCircle, 
-  GraduationCap,
-  BookOpen, 
-  PieChart, 
-  Camera, 
-  Lock, 
-  ArrowRight, 
-  RotateCcw, 
-  Calendar, 
-  Clock, 
-  Check, 
-  X,
-  Filter, 
-  BarChart3, 
-  ArrowLeftRight, 
-  Accessibility, 
-  School, 
-  StickyNote, 
-  MessageSquare, 
-  FileText, 
-  ZoomIn, 
-  ZoomOut, 
-  Sparkles, 
-  QrCode, 
-  TrendingUp, 
-  Save, 
-  Search, 
-  ChevronDown, 
-  Menu, 
-  ExternalLink,
-  Sun,
-  Moon
+  Users, Plus, Edit2, Trash2, Shield, Download, CheckCircle, XCircle, GraduationCap,
+  BookOpen, PieChart, Camera, Lock, ArrowRight, RotateCcw, Calendar, Clock, Check, X,
+  Filter, BarChart3, ArrowLeftRight, Accessibility, School, StickyNote, MessageSquare, 
+  FileText, ZoomIn, ZoomOut, Sparkles, QrCode, TrendingUp, Save, Search, ChevronDown, Menu, Sun, Moon
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
-import { 
-  getAuth, 
-  signInAnonymously, 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword, 
-  signOut 
-} from 'firebase/auth';
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  onSnapshot, 
-  query, 
-  serverTimestamp, 
-  arrayUnion, 
-  arrayRemove 
-} from 'firebase/firestore';
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 
 // --- Firebase Configuration ---
-// Hardcoded config to prevent initialization crashes
 const firebaseConfig = {
   apiKey: "AIzaSyDm56Tm6lr00XIHTIMSLiiLe1c6vfV1_vo",
   authDomain: "student-db-v2.firebaseapp.com",
@@ -81,69 +27,30 @@ const appId = 'my-school-database';
 
 // --- Constants ---
 const KEMAHIRAN_BM = [
-  "KP 1: Huruf Kecil", 
-  "KP 2: Huruf Besar", 
-  "KP 3: Huruf Vokal", 
-  "KP 4: Suku Kata KV",
-  "KP 5: Perkataan KV + KV", 
-  "KP 6: Perkataan V + KV", 
-  "KP 7: Perkataan KV + KV + KV", 
-  "KP 8: Perkataan KVK",
-  "KP 9: Suku Kata KVK", 
-  "KP 10: Perkataan V + KVK", 
-  "KP 11: Perkataan KV + KVK", 
-  "KP 12: Perkataan KVK + KV",
-  "KP 13: Perkataan KVK + KVK", 
-  "KP 14: Perkataan KV + KV + KVK", 
-  "KP 15: Perkataan KV + KVK + KV", 
-  "KP 16: Perkataan KVK + KV + KV",
-  "KP 17: Perkataan KV + KVK + KVK", 
-  "KP 18: Perkataan KVK + KV + KVK", 
-  "KP 19: Perkataan KVK + KVK + KV", 
-  "KP 20: Perkataan KVK + KVK + KVK",
-  "KP 21: Perkataan KVKK", 
-  "KP 22: Perkataan V + KVKK", 
-  "KP 23: Perkataan K + VKK", 
-  "KP 24: Perkataan KV + KVKK",
-  "KP 25: Perkataan KVK + KVKK", 
-  "KP 26: Perkataan KVKK + KV", 
-  "KP 27: Perkataan KVKK + KVK", 
-  "KP 28: Perkataan KVKK + KVKK",
-  "KP 29: Perkataan KV + KV + KVKK", 
-  "KP 30: Perkataan KV + KVK + KVKK", 
-  "KP 31: Perkataan KVK + KV + KVKK", 
-  "KP 32: Bacaan dan Pemahaman"
+  "KP 1: Huruf Kecil", "KP 2: Huruf Besar", "KP 3: Huruf Vokal", "KP 4: Suku Kata KV",
+  "KP 5: Perkataan KV + KV", "KP 6: Perkataan V + KV", "KP 7: Perkataan KV + KV + KV", "KP 8: Perkataan KVK",
+  "KP 9: Suku Kata KVK", "KP 10: Perkataan V + KVK", "KP 11: Perkataan KV + KVK", "KP 12: Perkataan KVK + KV",
+  "KP 13: Perkataan KVK + KVK", "KP 14: Perkataan KV + KV + KVK", "KP 15: Perkataan KV + KVK + KV", "KP 16: Perkataan KVK + KV + KV",
+  "KP 17: Perkataan KV + KVK + KVK", "KP 18: Perkataan KVK + KV + KVK", "KP 19: Perkataan KVK + KVK + KV", "KP 20: Perkataan KVK + KVK + KVK",
+  "KP 21: Perkataan KVKK", "KP 22: Perkataan V + KVKK", "KP 23: Perkataan K + VKK", "KP 24: Perkataan KV + KVKK",
+  "KP 25: Perkataan KVK + KVKK", "KP 26: Perkataan KVKK + KV", "KP 27: Perkataan KVKK + KVK", "KP 28: Perkataan KVKK + KVKK",
+  "KP 29: Perkataan KV + KV + KVKK", "KP 30: Perkataan KV + KVK + KVKK", "KP 31: Perkataan KVK + KV + KVKK", "KP 32: Bacaan dan Pemahaman"
 ];
 
 const KEMAHIRAN_MATH = [
-  "KP 1: Pra Nombor", 
-  "KP 2: Konsep Nombor", 
-  "KP 3: Nombor Bulat", 
-  "KP 4: Tambah Lingkungan 10", 
-  "KP 5: Tolak Lingkungan 10",
-  "KP 6: Tambah Lingkungan 18", 
-  "KP 7: Tolak Lingkungan 18", 
-  "KP 8: Tambah Lingkungan 100", 
-  "KP 9: Tolak Lingkungan 100",
-  "KP 10: Darab", 
-  "KP 11: Bahagi", 
-  "KP 12: Wang & Masa"
+  "KP 1: Pra Nombor", "KP 2: Konsep Nombor", "KP 3: Nombor Bulat", "KP 4: Tambah Lingkungan 10", "KP 5: Tolak Lingkungan 10",
+  "KP 6: Tambah Lingkungan 18", "KP 7: Tolak Lingkungan 18", "KP 8: Tambah Lingkungan 100", "KP 9: Tolak Lingkungan 100",
+  "KP 10: Darab", "KP 11: Bahagi", "KP 12: Wang & Masa"
 ];
 
 const subjects = ['Pemulihan BM', 'Pemulihan Matematik', 'Pemulihan BM dan Matematik'];
 const cardColors = ['bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-orange-500', 'bg-pink-500', 'bg-indigo-500'];
 
-
-// --- UI Components ---
-
-// Windows XP Style Progress Bar
+// --- Sub-Components ---
 const RetroProgressBar = ({ progress }) => (
   <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-md p-1 border border-gray-400 dark:border-slate-600 shadow-inner">
     <div className="relative w-full h-6 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-sm overflow-hidden">
-      <div 
-        className="h-full bg-gradient-to-b from-green-400 via-green-500 to-green-600 relative overflow-hidden transition-all duration-500 ease-out flex items-center" 
-        style={{ width: `${progress}%` }}
-      >
+      <div className="h-full bg-gradient-to-b from-green-400 via-green-500 to-green-600 relative overflow-hidden transition-all duration-500 ease-out flex items-center" style={{ width: `${progress}%` }}>
         <div className="absolute top-0 left-0 w-full h-full animate-progress-shine opacity-30 bg-gradient-to-r from-transparent via-white to-transparent transform -skew-x-12"></div>
       </div>
       <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-shadow-sm mix-blend-difference text-white">
@@ -151,68 +58,40 @@ const RetroProgressBar = ({ progress }) => (
       </div>
     </div>
     <style>{`
-      @keyframes progress-shine {
-        0% { transform: translateX(-100%) skewX(-12deg); }
-        100% { transform: translateX(200%) skewX(-12deg); }
-      }
+      @keyframes progress-shine { 0% { transform: translateX(-100%) skewX(-12deg); } 100% { transform: translateX(200%) skewX(-12deg); } }
       .animate-progress-shine { animation: progress-shine 2s linear infinite; }
     `}</style>
   </div>
 );
 
-// Image Adjuster Component
 const ImageAdjuster = ({ imageSrc, onSave, onCancel, title = "Adjust Photo" }) => {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
   const containerRef = useRef(null);
 
-  const handleMouseDown = (e) => { 
-    setIsDragging(true); 
-    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y }); 
-  };
-  
-  const handleMouseMove = (e) => { 
-    if (isDragging) {
-      setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y }); 
-    }
-  };
-  
+  const handleMouseDown = (e) => { setIsDragging(true); setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y }); };
+  const handleMouseMove = (e) => { if (isDragging) setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y }); };
   const handleMouseUp = () => setIsDragging(false);
-  
-  const handleTouchStart = (e) => { 
-    setIsDragging(true); 
-    setDragStart({ x: e.touches[0].clientX - position.x, y: e.touches[0].clientY - position.y }); 
-  };
-  
-  const handleTouchMove = (e) => { 
-    if (isDragging) {
-      setPosition({ x: e.touches[0].clientX - dragStart.x, y: e.touches[0].clientY - dragStart.y }); 
-    }
-  };
+  const handleTouchStart = (e) => { setIsDragging(true); setDragStart({ x: e.touches[0].clientX - position.x, y: e.touches[0].clientY - position.y }); };
+  const handleTouchMove = (e) => { if (isDragging) setPosition({ x: e.touches[0].clientX - dragStart.x, y: e.touches[0].clientY - dragStart.y }); };
 
   const handleSave = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const img = imageRef.current;
     const size = 500;
-    
-    canvas.width = size;
-    canvas.height = size;
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, size, size);
-    
+    canvas.width = size; canvas.height = size;
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, size, size);
     const containerSize = containerRef.current.clientWidth;
     const ratio = size / containerSize;
     const drawX = (position.x * ratio) + (size / 2) - ((img.width * scale * ratio) / 2);
     const drawY = (position.y * ratio) + (size / 2) - ((img.height * scale * ratio) / 2);
     const drawWidth = img.width * scale * ratio;
     const drawHeight = img.height * scale * ratio;
-    
     ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
     onSave(canvas.toDataURL('image/jpeg', 0.8));
   };
@@ -220,136 +99,51 @@ const ImageAdjuster = ({ imageSrc, onSave, onCancel, title = "Adjust Photo" }) =
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col border border-slate-200 dark:border-slate-700">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-          <h3 className="font-bold text-lg text-slate-800 dark:text-white">{title}</h3>
-          <button 
-            onClick={onCancel} 
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-          >
-            <X size={24} />
-          </button>
-        </div>
+        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center"><h3 className="font-bold text-lg text-slate-800 dark:text-white">{title}</h3><button onClick={onCancel} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X size={24} /></button></div>
         <div className="p-6 flex flex-col items-center gap-4">
-          <div 
-            ref={containerRef}
-            className="w-64 h-64 bg-slate-100 dark:bg-slate-900 rounded-xl overflow-hidden relative cursor-move touch-none border-2 border-slate-200 dark:border-slate-700 shadow-inner"
-            onMouseDown={handleMouseDown} 
-            onMouseMove={handleMouseMove} 
-            onMouseUp={handleMouseUp} 
-            onMouseLeave={handleMouseUp}
-            onTouchStart={handleTouchStart} 
-            onTouchMove={handleTouchMove} 
-            onTouchEnd={handleMouseUp}
-          >
-            <img 
-              ref={imageRef} 
-              src={imageSrc} 
-              alt="Edit" 
-              className="absolute max-w-none origin-center pointer-events-none select-none" 
-              style={{ transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px) scale(${scale})`, left: '50%', top: '50%' }} 
-              draggable="false" 
-            />
+          <div ref={containerRef} className="w-64 h-64 bg-slate-100 dark:bg-slate-900 rounded-xl overflow-hidden relative cursor-move touch-none border-2 border-slate-200 dark:border-slate-700 shadow-inner" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleMouseUp}>
+            <img ref={imageRef} src={imageSrc} alt="Edit" className="absolute max-w-none origin-center pointer-events-none select-none" style={{ transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px) scale(${scale})`, left: '50%', top: '50%' }} draggable="false" />
             <div className="absolute inset-0 border-2 border-indigo-500/30 rounded-xl pointer-events-none"></div>
           </div>
-          <div className="w-full flex items-center gap-3 text-slate-500 dark:text-slate-400">
-             <ZoomOut size={16} />
-             <input 
-               type="range" 
-               min="0.1" 
-               max="3" 
-               step="0.05" 
-               value={scale} 
-               onChange={(e) => setScale(parseFloat(e.target.value))} 
-               className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer" 
-             />
-             <ZoomIn size={16} />
-          </div>
-          <p className="text-center text-xs text-slate-400">Drag to move • Pinch/Slider to zoom</p>
+          <div className="w-full flex items-center gap-3 text-slate-500 dark:text-slate-400"><ZoomOut size={16} /><input type="range" min="0.1" max="3" step="0.05" value={scale} onChange={(e) => setScale(parseFloat(e.target.value))} className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer" /><ZoomIn size={16} /></div>
         </div>
-        <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex gap-3">
-          <button 
-            onClick={onCancel} 
-            className="flex-1 py-2.5 font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600"
-          >
-            Cancel
-          </button>
-          <button 
-            onClick={handleSave} 
-            className="flex-1 py-2.5 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-md shadow-indigo-200 dark:shadow-none"
-          >
-            Save
-          </button>
-        </div>
+        <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex gap-3"><button onClick={onCancel} className="flex-1 py-2.5 font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600">Cancel</button><button onClick={handleSave} className="flex-1 py-2.5 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-md shadow-indigo-200 dark:shadow-none">Save</button></div>
         <canvas ref={canvasRef} className="hidden"></canvas>
       </div>
     </div>
   );
 };
 
-// Full Screen Image Viewer
 const ImageViewer = ({ src, onClose }) => {
   if (!src) return null;
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 cursor-zoom-out animate-in fade-in duration-200" onClick={onClose}>
-       <button 
-         onClick={onClose} 
-         className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors"
-       >
-         <X size={32} />
-       </button>
-       <img 
-         src={src} 
-         alt="Full Screen" 
-         className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" 
-         onClick={(e) => e.stopPropagation()} 
-       />
+       <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors"><X size={32} /></button>
+       <img src={src} alt="Full Screen" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
     </div>
   );
 };
 
-// Avatar Component
 const Avatar = ({ name, color, photoUrl, size = "w-12 h-12", onClick }) => {
   const commonClasses = `${size} rounded-xl shadow-sm border-2 border-white dark:border-slate-800 ring-1 ring-gray-100 dark:ring-slate-700 flex-shrink-0 ${onClick ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`;
-  if (photoUrl) {
-    return (
-      <img 
-        src={photoUrl} 
-        alt={name} 
-        className={`${commonClasses} object-cover object-top bg-white dark:bg-slate-800`} 
-        onClick={onClick} 
-      />
-    );
-  }
-  const initials = (name || '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-  return (
-    <div className={`${commonClasses} flex items-center justify-center text-white font-bold shadow-sm ${color}`}>
-      {initials}
-    </div>
-  );
+  if (photoUrl) return <img src={photoUrl} alt={name} className={`${commonClasses} object-cover object-top bg-white dark:bg-slate-800`} onClick={onClick} />;
+  const initials = (name || "?").split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  return <div className={`${commonClasses} flex items-center justify-center text-white font-bold shadow-sm ${color}`}>{initials}</div>;
 };
 
-// Reusable Modal Wrapper
 const Modal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm transition-all duration-300">
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 fade-in border border-slate-200 dark:border-slate-700">
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800 sticky top-0 z-10">
-          <h3 className="font-bold text-lg text-slate-800 dark:text-white tracking-tight">{title}</h3>
-          <button 
-            onClick={onClose} 
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 p-1 rounded-full transition-colors"
-          >
-            <XCircle size={24} />
-          </button>
-        </div>
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800 sticky top-0 z-10"><h3 className="font-bold text-lg text-slate-800 dark:text-white tracking-tight">{title}</h3><button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 p-1 rounded-full transition-colors"><XCircle size={24} /></button></div>
         <div className="p-6">{children}</div>
       </div>
     </div>
   );
 };
 
-// --- Helper Logic Functions ---
+// --- Helper Functions ---
 const calculateSchoolYearFromIC = (ic) => {
   if (!ic) return null;
   const icStr = String(ic).replace(/\D/g, ''); 
@@ -389,7 +183,7 @@ const getClassColorStyle = (className) => {
     { bg: 'bg-amber-50 dark:bg-amber-900/30', border: 'border-amber-200 dark:border-amber-800', text: 'text-amber-900 dark:text-amber-100', icon: 'text-amber-600 dark:text-amber-400' },
     { bg: 'bg-purple-50 dark:bg-purple-900/30', border: 'border-purple-200 dark:border-purple-800', text: 'text-purple-900 dark:text-purple-100', icon: 'text-purple-600 dark:text-purple-400' },
     { bg: 'bg-rose-50 dark:bg-rose-900/30', border: 'border-rose-200 dark:border-rose-800', text: 'text-rose-900 dark:text-rose-100', icon: 'text-rose-600 dark:text-rose-400' },
-    { bg: 'bg-cyan-50 dark:bg-cyan-900/30', border: 'border-cyan-200 dark:border-cyan-800', text: 'text-cyan-900 dark:text-cyan-100', icon: 'text-cyan-600 dark:text-cyan-400' }
+    { bg: 'bg-cyan-50 dark:bg-cyan-900/30', border: 'border-cyan-200 dark:border-cyan-800', text: 'text-cyan-900 dark:text-cyan-100', icon: 'text-cyan-600 dark:text-cyan-400' },
   ];
   let hash = 0;
   for (let i = 0; i < safeClassName.length; i++) hash = safeClassName.charCodeAt(i) + ((hash << 5) - hash);
@@ -397,9 +191,12 @@ const getClassColorStyle = (className) => {
 };
 
 const getSubjectBadgeColor = (subject) => {
-  if (subject === 'Pemulihan BM') return 'bg-blue-600';
-  if (subject === 'Pemulihan Matematik') return 'bg-orange-500';
-  return 'bg-purple-600';
+  switch (subject) {
+    case 'Pemulihan BM': return 'bg-blue-600';
+    case 'Pemulihan Matematik': return 'bg-orange-500';
+    case 'Pemulihan BM dan Matematik': return 'bg-purple-600';
+    default: return 'bg-slate-500';
+  }
 };
 
 const calculateStats = (records) => {
@@ -417,11 +214,8 @@ export default function StudentDatabaseApp() {
   // App Theme & Role State
   const [role, setRole] = useState('user'); 
   const [currentSection, setCurrentSection] = useState('profile'); 
-  
-  // Touchscreen Admin Control
   const [selectedAdminStudent, setSelectedAdminStudent] = useState(null); 
-
-  // Dark Mode Persistence
+  
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('darkMode');
@@ -430,14 +224,11 @@ export default function StudentDatabaseApp() {
     return false;
   });
 
-  useEffect(() => { 
-    localStorage.setItem('darkMode', JSON.stringify(isDarkMode)); 
-  }, [isDarkMode]);
+  // Browser Tab Name
+  useEffect(() => { document.title = "Pemulihan SJKC Sin Ming"; }, []);
 
-  // Set Browser Title
-  useEffect(() => { 
-    document.title = "Pemulihan SJKC Sin Ming"; 
-  }, []);
+  // Save Dark Mode Theme
+  useEffect(() => { localStorage.setItem('darkMode', JSON.stringify(isDarkMode)); }, [isDarkMode]);
 
   // Filters
   const [profileYearFilter, setProfileYearFilter] = useState('All');
@@ -453,9 +244,7 @@ export default function StudentDatabaseApp() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: 'Lelaki', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false, qrCodeUrl: ''
-  });
+  const [formData, setFormData] = useState({ name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: 'Lelaki', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false, qrCodeUrl: '' });
 
   const [rawImageSrc, setRawImageSrc] = useState(null);
   const [fullScreenImage, setFullScreenImage] = useState(null); 
@@ -481,17 +270,11 @@ export default function StudentDatabaseApp() {
   // --- Effects ---
   useEffect(() => {
     if (!auth) return;
-    
-    // Attempt anonymous sign-in so DB load doesn't hang
     signInAnonymously(auth).catch(() => {});
-
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser && currentUser.email === "admin@pemulihan.com") {
-        setRole('admin');
-      } else {
-        setRole('user');
-      }
+      if (currentUser && currentUser.email === "admin@pemulihan.com") setRole('admin');
+      else setRole('user');
     });
     return () => unsubscribe();
   }, []);
@@ -502,10 +285,7 @@ export default function StudentDatabaseApp() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
         setStudents(snapshot.docs.map(doc => ({ id: doc.id, attendanceRecords: [], notes: [], ...doc.data() })));
         setLoading(false);
-      }, (error) => { 
-        console.error("Firestore error:", error); 
-        setLoading(false); 
-      }
+      }, (error) => { console.error("Firestore error:", error); setLoading(false); }
     );
     return () => unsubscribe();
   }, []);
@@ -514,15 +294,10 @@ export default function StudentDatabaseApp() {
   const handleTabChange = (tabId) => {
     setCurrentSection(tabId);
     setSelectedAdminStudent(null);
-    
     if (tabId !== 'progress') {
-       setProfileYearFilter('All'); 
-       setClassFilter('All'); 
-       setSubjectFilter('All');
-       setMbkTypeFilter('All');
+       setProfileYearFilter('All'); setClassFilter('All'); setSubjectFilter('All'); setMbkTypeFilter('All');
        if (tabId === 'mbk') setProfileYearFilter(''); 
-       setSelectedStudentForProgress(null); 
-       setSearchQuery('');
+       setSelectedStudentForProgress(null); setSearchQuery('');
     }
   };
 
@@ -540,12 +315,8 @@ export default function StudentDatabaseApp() {
     e.preventDefault();
     try {
         await signInWithEmailAndPassword(auth, "admin@pemulihan.com", adminPassword);
-        setShowAdminLogin(false); 
-        setAdminPassword(''); 
-        setLoginError('');
-    } catch (error) { 
-        setLoginError('Incorrect password.'); 
-    }
+        setShowAdminLogin(false); setAdminPassword(''); setLoginError('');
+    } catch (error) { setLoginError('Incorrect password.'); }
   };
 
   const handleImageUpload = (e, type = 'profile') => {
@@ -559,17 +330,12 @@ export default function StudentDatabaseApp() {
   };
   
   const handleCropSave = (croppedImageBase64) => {
-    if (uploadType === 'profile') {
-      setFormData(prev => ({ ...prev, photoUrl: croppedImageBase64 }));
-    } else {
-      setFormData(prev => ({ ...prev, qrCodeUrl: croppedImageBase64 }));
-    }
+    if (uploadType === 'profile') setFormData(prev => ({ ...prev, photoUrl: croppedImageBase64 }));
+    else setFormData(prev => ({ ...prev, qrCodeUrl: croppedImageBase64 }));
     setRawImageSrc(null);
   };
 
-  const handleCropCancel = () => {
-    setRawImageSrc(null);
-  };
+  const handleCropCancel = () => { setRawImageSrc(null); };
 
   const handleRemovePhoto = (type = 'profile') => {
     if(window.confirm(`Are you sure you want to remove the ${type === 'profile' ? 'profile photo' : 'QR code'}?`)) {
@@ -591,86 +357,55 @@ export default function StudentDatabaseApp() {
     
     try {
       const dataToSave = {
-        name: formData.name, 
-        program: formData.program, 
-        gender: formData.gender, 
-        status: formData.status,
-        photoUrl: formData.photoUrl || '', 
-        updatedAt: serverTimestamp(), 
-        ic: formData.ic || '', 
-        isNewStudent: formData.isNewStudent || false
+        name: formData.name, program: formData.program, gender: formData.gender, status: formData.status,
+        photoUrl: formData.photoUrl || '', updatedAt: serverTimestamp(), ic: formData.ic || '', isNewStudent: formData.isNewStudent || false
       };
       
       if (formData.program === 'pemulihan') {
-        dataToSave.className = formData.className; 
-        dataToSave.subject = formData.subject;
-        dataToSave.mbkType = ''; 
-        dataToSave.remarks = ''; 
-        dataToSave.docLink = ''; 
-        dataToSave.qrCodeUrl = '';
+        dataToSave.className = formData.className; dataToSave.subject = formData.subject;
+        dataToSave.mbkType = ''; dataToSave.remarks = ''; dataToSave.docLink = ''; dataToSave.qrCodeUrl = '';
       } else {
-        dataToSave.mbkType = formData.mbkType; 
-        dataToSave.remarks = formData.remarks || ''; 
-        dataToSave.docLink = formData.docLink || ''; 
-        dataToSave.qrCodeUrl = formData.qrCodeUrl || '';
-        dataToSave.className = ''; 
-        dataToSave.subject = '';
+        dataToSave.mbkType = formData.mbkType; dataToSave.remarks = formData.remarks || ''; 
+        dataToSave.docLink = formData.docLink || ''; dataToSave.qrCodeUrl = formData.qrCodeUrl || '';
+        dataToSave.className = ''; dataToSave.subject = '';
       }
 
       if (editingId) {
         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', editingId), dataToSave);
       } else {
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), {
-          ...dataToSave, 
-          attendanceRecords: [], 
-          notes: [], 
-          color: cardColors[Math.floor(Math.random() * cardColors.length)], 
-          createdAt: serverTimestamp()
+          ...dataToSave, attendanceRecords: [], notes: [], color: cardColors[Math.floor(Math.random() * cardColors.length)], createdAt: serverTimestamp()
         });
       }
-      setIsModalOpen(false); 
-      setEditingId(null);
+      setIsModalOpen(false); setEditingId(null);
     } catch (err) { console.error("Error saving:", err); }
   };
   
   const handleProgressUpdate = async () => {
     if (!user || !selectedStudentForProgress || !db) return;
     try {
-       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForProgress.id), { 
-         progress: studentProgressData 
-       });
+       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForProgress.id), { progress: studentProgressData });
        alert("Progress saved successfully!");
-    } catch (err) { 
-       console.error("Error saving progress:", err); 
-       alert("Failed to save progress."); 
-    }
+    } catch (err) { console.error("Error saving progress:", err); alert("Failed to save progress."); }
   };
   
   const toggleSkill = (skillIndex) => {
     const currentSubjectKey = progressSubject === 'BM' ? 'bm' : 'math';
     const currentSkills = studentProgressData[currentSubjectKey] || [];
-    let newSkills = currentSkills.includes(skillIndex) 
-      ? currentSkills.filter(i => i !== skillIndex) 
-      : [...currentSkills, skillIndex];
-      
+    let newSkills = currentSkills.includes(skillIndex) ? currentSkills.filter(i => i !== skillIndex) : [...currentSkills, skillIndex];
     setStudentProgressData(prev => ({ ...prev, [currentSubjectKey]: newSkills }));
   };
 
+  // 100% FIXED: Safely calls the correct excel export
   const exportToExcel = () => {
-    if (!students || students.length === 0) { 
-      alert("No data to export."); 
-      return; 
-    }
+    if (!students || students.length === 0) { alert("No data to export."); return; }
     const workbook = XLSX.utils.book_new();
     const formatStudent = (s) => ({
       Name: s.name, Gender: s.gender, IC: s.ic || '', Class: s.className || '', Subject: s.subject || '',
-      Program: s.program === 'mbk' ? (s.mbkType || 'MBK') : 'Pemulihan', Status: s.status, Remarks: s.remarks || '',
-      DocLink: s.docLink || ''
+      Program: s.program === 'mbk' ? (s.mbkType || 'MBK') : 'Pemulihan', Status: s.status, Remarks: s.remarks || '', DocLink: s.docLink || ''
     });
 
-    const addSheet = (data, name) => { 
-      if(data.length > 0) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), name); 
-    };
+    const addSheet = (data, name) => { if(data.length > 0) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), name); };
     
     addSheet(students.filter(s => s.program === 'pemulihan' && s.status !== 'Lulus' && getStudentCurrentYear(s) <= 3).map(formatStudent), "Profile");
     addSheet(students.filter(s => s.program === 'pemulihan' && s.status !== 'Lulus' && getStudentCurrentYear(s) >= 4 && getStudentCurrentYear(s) <= 6).map(formatStudent), "PLaN");
@@ -703,11 +438,8 @@ export default function StudentDatabaseApp() {
 
   const deleteAttendanceRecord = async (record) => {
     if (!user || !selectedStudentForAttendance || !db) return;
-    try { 
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForAttendance.id), { 
-        attendanceRecords: arrayRemove(record) 
-      }); 
-    } catch (err) { console.error("Error deleting record:", err); }
+    try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForAttendance.id), { attendanceRecords: arrayRemove(record) }); } 
+    catch (err) { console.error("Error deleting record:", err); }
   };
 
   const saveNote = async (e) => {
@@ -720,7 +452,6 @@ export default function StudentDatabaseApp() {
     } else {
       newNotes.push({ id: Date.now().toString(), text: noteForm.text, date: noteForm.date, timestamp: Date.now() });
     }
-    
     try {
       await updateDoc(ref, { notes: newNotes });
       setNoteForm({ id: null, text: '', date: new Date().toISOString().split('T')[0] }); 
@@ -731,9 +462,8 @@ export default function StudentDatabaseApp() {
     if (!user || !selectedStudentForNotes || !db) return;
     if (!window.confirm('Delete this note?')) return;
     const newNotes = (selectedStudentForNotes.notes || []).filter(n => n.id !== noteId);
-    try { 
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForNotes.id), { notes: newNotes }); 
-    } catch (err) { console.error("Error deleting note:", err); }
+    try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForNotes.id), { notes: newNotes }); } 
+    catch (err) { console.error("Error deleting note:", err); }
   };
 
   const startEditNote = (note) => setNoteForm({ id: note.id, text: note.text, date: note.date });
@@ -742,8 +472,7 @@ export default function StudentDatabaseApp() {
     if (!user || role !== 'admin' || !moveConfirmation.student || !db) return;
     try {
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', moveConfirmation.student.id), { 
-        status: moveConfirmation.newStatus, 
-        graduationDate: moveConfirmation.newStatus === 'Lulus' ? moveDate : null 
+        status: moveConfirmation.newStatus, graduationDate: moveConfirmation.newStatus === 'Lulus' ? moveDate : null 
       });
       setMoveConfirmation({ isOpen: false, student: null, newStatus: '' });
     } catch (err) { console.error("Error updating status:", err); }
@@ -781,6 +510,15 @@ export default function StudentDatabaseApp() {
   const toggleStudentStatus = (student) => {
     setMoveDate(new Date().toISOString().split('T')[0]);
     setMoveConfirmation({ isOpen: true, student: student, newStatus: student.status === 'Lulus' ? 'Active' : 'Lulus' });
+  };
+
+  const handleCheckOKU = (ic) => {
+    if (!ic) return;
+    const textArea = document.createElement("textarea");
+    textArea.value = ic; document.body.appendChild(textArea); textArea.select();
+    try { document.execCommand('copy'); } catch (err) { console.error('Copy failed', err); }
+    document.body.removeChild(textArea);
+    window.open('https://oku.jkm.gov.my/semakan_oku', '_blank');
   };
 
   // --- Filtering & Derived State ---
@@ -860,12 +598,12 @@ export default function StudentDatabaseApp() {
     return groups;
   }, [students, currentSection]);
 
-
   // Reusable Student Card Component for the Grid Views
   const renderStudentCard = (student, sectionType) => {
     const isMbk = sectionType === 'mbk';
     const isLulus = sectionType === 'lulus';
     const isProfile = sectionType === 'profile';
+    
     const year = getStudentCurrentYear(student);
     const stats = calculateStats(student.attendanceRecords || []);
     
@@ -887,9 +625,7 @@ export default function StudentDatabaseApp() {
     }
 
     const handleCardClick = () => {
-      if (role === 'admin') {
-        setSelectedAdminStudent(isSelected ? null : student.id);
-      }
+      if (role === 'admin') setSelectedAdminStudent(isSelected ? null : student.id);
     };
 
     return (
@@ -909,7 +645,7 @@ export default function StudentDatabaseApp() {
             {isMbk ? (
                <>
                  <div className="flex items-center justify-center gap-2 mb-3"><CreditCard size={16} className="text-slate-400" /><span className="font-bold text-slate-700 dark:text-slate-300 tracking-wide font-mono">{student.ic}</span></div>
-                 <div className="bg-indigo-50 dark:bg-indigo-900/30 p-2 rounded-lg text-sm font-medium text-indigo-900 dark:text-indigo-200 mb-2">{year < 1 ? 'Pra' : `Tahun ${year}`}</div>
+                 <div className={`bg-indigo-50 dark:bg-indigo-900/30 p-2 rounded-lg text-sm font-medium text-indigo-900 dark:text-indigo-200 mb-2`}>{year < 1 ? 'Pra' : `Tahun ${year}`}</div>
                  <div className="text-sm text-slate-600 dark:text-slate-400 font-medium">{student.gender} • <span className={`px-2 py-0.5 rounded text-xs font-bold ${student.mbkType === 'OKU' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>{student.mbkType || 'MBK'}</span></div>
                </>
             ) : (
@@ -917,7 +653,7 @@ export default function StudentDatabaseApp() {
                  <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-0.5">{student.className || student.subject}</div>
                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">{student.gender}</p>
                  {!isLulus && <div className={`inline-block text-[10px] font-bold text-white px-2 py-0.5 rounded-md uppercase tracking-wide mb-2 shadow-sm ${getSubjectBadgeColor(student.subject)}`}>{student.subject}</div>}
-                 {isLulus && <div className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold bg-purple-50 dark:bg-purple-900/30 px-1.5 py-0.5 rounded border border-purple-100 dark:border-purple-800 inline-block mt-1">Grad: {student.graduationDate}</div>}
+                 {isLulus && <div className={`text-[10px] text-purple-600 dark:text-purple-400 font-semibold bg-purple-50 dark:bg-purple-900/30 px-1.5 py-0.5 rounded border border-purple-100 dark:border-purple-800 inline-block mt-1`}>Grad: {student.graduationDate}</div>}
                </>
             )}
 
@@ -943,9 +679,9 @@ export default function StudentDatabaseApp() {
             </div>
           )}
 
-          {/* Desktop Admin Hover & Touch Controls */}
+          {/* Desktop Admin Hover Controls */}
           {role === 'admin' && (
-            <div className={`absolute top-2 right-2 flex ${isMbk ? 'flex-row' : 'flex-col'} gap-1 transition-opacity duration-200 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} bg-white/90 dark:bg-slate-800/90 p-1 rounded-lg backdrop-blur-sm shadow-sm border border-slate-100 dark:border-slate-700`}>
+            <div className={`absolute top-2 right-2 flex ${isMbk ? 'flex-row' : 'flex-col'} gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-slate-800/90 p-1 rounded-lg backdrop-blur-sm shadow-sm border border-slate-100 dark:border-slate-700`}>
                {(!isMbk && !isLulus) && <button onClick={(e) => { e.stopPropagation(); openNotesModal(student); }} className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-slate-700 rounded transition-colors" title="Notes"><StickyNote size={14} /></button>}
                {isProfile && <button onClick={(e) => { e.stopPropagation(); openAttendanceModal(student); }} className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700 rounded transition-colors" title="Attendance"><Calendar size={14} /></button>}
                <button onClick={(e) => { e.stopPropagation(); openEdit(student); }} className="p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors" title="Edit"><Edit2 size={14} /></button>
@@ -962,7 +698,7 @@ export default function StudentDatabaseApp() {
           <div className="flex flex-col items-center gap-2">
             <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={(e) => { e.stopPropagation(); if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
             
-            {/* Mobile Admin Controls under Avatar (Shows on Touch Select) */}
+            {/* Mobile Admin Controls under Avatar */}
             {role === 'admin' && isSelected && (
               <div className="grid grid-cols-2 gap-1 w-[70px]">
                  {(!isMbk && !isLulus) && <button onClick={(e) => { e.stopPropagation(); openNotesModal(student); }} className="p-1 text-amber-500 bg-amber-50 dark:bg-slate-700 dark:border-slate-600 rounded border border-amber-100 flex justify-center"><StickyNote size={12} /></button>}
@@ -1021,13 +757,11 @@ export default function StudentDatabaseApp() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center gap-3">
-              <div className="bg-indigo-600 p-2.5 rounded-xl shadow-md shadow-indigo-200 dark:shadow-none">
-                <GraduationCap className="text-white h-6 w-6" />
-              </div>
-              <span className={`font-bold text-lg tracking-tight hidden sm:block ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+              <div className="bg-indigo-600 p-2.5 rounded-xl shadow-md shadow-indigo-200 dark:shadow-none"><GraduationCap className="text-white h-6 w-6" /></div>
+              <span className={`font-bold text-xl tracking-tight hidden sm:block ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                 Pengurusan Program Pemulihan <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-cyan-400 font-mono tracking-widest uppercase drop-shadow-md">DIGITAL</span>
               </span>
-              <span className={`font-bold text-lg tracking-tight sm:hidden ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+              <span className={`font-bold text-xl tracking-tight sm:hidden ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                 Pemulihan <span className="text-indigo-500">DIGITAL</span>
               </span>
             </div>
@@ -1043,8 +777,7 @@ export default function StudentDatabaseApp() {
 
               <div className={`rounded-full p-1 flex items-center text-xs font-bold shadow-inner ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100/80 backdrop-blur-sm'}`}>
                 <button onClick={() => handleRoleSwitch('admin')} className={`px-4 py-1.5 rounded-full transition-all duration-300 flex items-center gap-1.5 ${role === 'admin' ? (isDarkMode ? 'bg-slate-700 text-indigo-400 shadow-sm' : 'bg-white shadow-sm text-indigo-600') : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
-                  {role === 'admin' && <Shield size={12} className={isDarkMode ? "text-indigo-400" : "text-indigo-500"} />}
-                  Admin
+                  {role === 'admin' && <Shield size={12} className={isDarkMode ? "text-indigo-400" : "text-indigo-500"} />}Admin
                 </button>
                 <button onClick={() => handleRoleSwitch('user')} className={`px-4 py-1.5 rounded-full transition-all duration-300 ${role === 'user' ? (isDarkMode ? 'bg-slate-700 text-indigo-400 shadow-sm' : 'bg-white shadow-sm text-indigo-600') : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
                   User
@@ -1532,7 +1265,7 @@ export default function StudentDatabaseApp() {
       </Modal>
 
       {/* Move Status Confirmation */}
-      <Modal isOpen={moveConfirmation.isOpen} onClose={()=>setMoveConfirmation({isOpen:false})} title="Confirm Status Change">
+      <Modal isOpen={moveConfirmation.isOpen} onClose={()=>setMoveConfirmation({isOpen:false})} title="Change Status">
         <div className="flex flex-col items-center justify-center mb-6 text-center">
           <div className={`p-4 rounded-full mb-4 ${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
             <ArrowLeftRight className={`w-10 h-10 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
@@ -1584,8 +1317,8 @@ export default function StudentDatabaseApp() {
             <h5 className={`text-sm font-bold mb-3 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}><Clock size={16} /> History</h5>
             <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
               {selectedStudentForNotes?.notes && selectedStudentForNotes.notes.length > 0 ? (
-                [...(selectedStudentForNotes.notes || [])].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((n)=>(
-                <div key={n.id} className={`p-3 rounded-xl border relative group transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+                [...selectedStudentForNotes.notes].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((n)=>(
+                <div key={n.id} className={`p-3 border rounded-xl text-sm group relative transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
                   <div className="flex justify-between items-start mb-1">
                     <span className={`text-xs font-bold px-2 py-0.5 rounded border ${isDarkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-white text-gray-500 border-gray-200'}`}>{n.date}</span>
                     <div className={`flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg shadow-sm ${isDarkMode ? 'bg-slate-900/90' : 'bg-white/90'}`}>
@@ -1625,7 +1358,7 @@ export default function StudentDatabaseApp() {
              <h5 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}><Clock size={14}/> Record History</h5>
              <div className={`max-h-48 overflow-y-auto border rounded-xl divide-y ${isDarkMode ? 'border-slate-700 divide-slate-700' : 'border-gray-100 divide-gray-100'}`}>
                 {selectedStudentForAttendance?.attendanceRecords?.length > 0 ? (
-                  [...(selectedStudentForAttendance.attendanceRecords || [])].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((r,i)=>(
+                  [...selectedStudentForAttendance.attendanceRecords].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((r,i)=>(
                   <div key={i} className={`py-3 px-4 flex justify-between items-center transition-colors ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}`}>
                     <span className={`font-medium text-sm ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>{r.date}</span>
                     <div className="flex items-center gap-3">
@@ -1641,7 +1374,7 @@ export default function StudentDatabaseApp() {
 
       {/* Add / Edit Form Modal */}
       <Modal isOpen={isModalOpen} onClose={()=>setIsModalOpen(false)} title={editingId ? "Edit Student" : "Add Student"}>
-        <form onSubmit={handleSave} className="space-y-4">
+        <form onSubmit={handleSave} className="space-y-4 text-sm">
           {!editingId && (
             <div className={`flex p-1 rounded-xl mb-4 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-100'}`}>
               <button type="button" onClick={()=>setFormData(p=>({...p,program:'pemulihan'}))} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${formData.program==='pemulihan'?(isDarkMode ? 'bg-slate-700 shadow-sm text-indigo-400' : 'bg-white shadow-sm text-indigo-600'):(isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700')}`}>Profile Pemulihan</button>
@@ -1690,7 +1423,7 @@ export default function StudentDatabaseApp() {
               </div>
               <div>
                 <label className={`block text-sm font-bold mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Class Name</label>
-                <input required placeholder="e.g. 2 He" className={`w-full p-2.5 border rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'bg-white border-gray-300'}`} value={formData.className} onChange={handleClassNameChange}/>
+                <input required placeholder="e.g. 2 Hebat" className={`w-full p-2.5 border rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'bg-white border-gray-300'}`} value={formData.className} onChange={handleClassNameChange}/>
                 <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>Format: Year ClassName (e.g. 2 Hebat)</p>
               </div>
               <div>
