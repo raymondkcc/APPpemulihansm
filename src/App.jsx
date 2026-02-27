@@ -4,7 +4,7 @@ import {
   BookOpen, PieChart, Camera, Lock, ArrowRight, RotateCcw, Calendar, Clock, Check, X,
   Filter, BarChart3, ArrowLeftRight, Accessibility, School, StickyNote, MessageSquare, 
   FileText, ZoomIn, ZoomOut, Sparkles, QrCode, TrendingUp, Save, Search, ChevronDown, 
-  Menu, CreditCard, ExternalLink
+  Menu, CreditCard, ExternalLink, BookOpenCheck
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -476,8 +476,8 @@ export default function StudentDatabaseApp() {
 
     const addSheet = (data, name) => { if(data.length > 0) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), name); };
     
-    addSheet(students.filter(s => s.program === 'pemulihan' && s.status !== 'Lulus' && getStudentCurrentYear(s) <= 3).map(formatStudent), "Profile");
-    addSheet(students.filter(s => s.program === 'pemulihan' && s.status !== 'Lulus' && getStudentCurrentYear(s) >= 4 && getStudentCurrentYear(s) <= 6).map(formatStudent), "PLaN");
+    addSheet(students.filter(s => (s.program || 'pemulihan') === 'pemulihan' && s.status !== 'Lulus' && getStudentCurrentYear(s) <= 3).map(formatStudent), "Profile");
+    addSheet(students.filter(s => (s.program || 'pemulihan') === 'pemulihan' && s.status !== 'Lulus' && getStudentCurrentYear(s) >= 4 && getStudentCurrentYear(s) <= 6).map(formatStudent), "PLaN");
     addSheet(students.filter(s => s.program === 'mbk').map(formatStudent), "MBK");
     addSheet(students.filter(s => s.status === 'Lulus').map(s => ({ ...formatStudent(s), GraduationDate: s.graduationDate || '' })), "Lulus");
     
@@ -585,12 +585,13 @@ export default function StudentDatabaseApp() {
 
   // --- Filtering & Derived State ---
   const availableYears = useMemo(() => {
-    const years = students.filter(s => s.program === 'pemulihan').map(s => getYearFromClassString(s.className)).filter(y => y !== null);
-    return ['All', ...Array.from(new Set(years)).sort()];
+    const pemulihanStudents = students.filter(s => !s.program || s.program === 'pemulihan');
+    const years = new Set(pemulihanStudents.map(s => getYearFromClassString(s.className)).filter(y => y !== null));
+    return ['All', ...Array.from(years).sort((a,b) => a - b)];
   }, [students]);
 
   const availableClasses = useMemo(() => {
-    const classes = students.filter(s => s.program === 'pemulihan').map(s => s.className).filter(Boolean);
+    const classes = students.filter(s => !s.program || s.program === 'pemulihan').map(s => s.className).filter(Boolean);
     return ['All', ...Array.from(new Set(classes)).sort()];
   }, [students]);
 
