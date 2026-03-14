@@ -244,6 +244,10 @@ export default function StudentDatabaseApp() {
   const [statsFilters, setStatsFilters] = useState({ year: 'All', gender: 'All', subject: 'All' });
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Scroll State for Progress Tracker
+  const progressListContainerRef = useRef(null);
+  const progressScrollRef = useRef(0);
+
   // Auth & Modals
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
@@ -392,19 +396,37 @@ export default function StudentDatabaseApp() {
     } catch (err) { console.error("Error saving:", err); }
   };
   
-  const handleProgressUpdate = async () => {
-    if (!user || !selectedStudentForProgress || !db) return;
-    try {
-       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForProgress.id), { progress: studentProgressData });
-       alert("Progress saved successfully!");
-    } catch (err) { console.error("Error saving progress:", err); alert("Failed to save progress."); }
-  };
-  
-  const toggleSkill = (skillIndex) => {
+  // Updated toggleSkill to Auto-Save immediately
+  const toggleSkill = async (skillIndex) => {
+    if (!user || role !== 'admin' || !selectedStudentForProgress || !db) return;
+
     const currentSubjectKey = progressSubject === 'BM' ? 'bm' : 'math';
     const currentSkills = studentProgressData[currentSubjectKey] || [];
-    let newSkills = currentSkills.includes(skillIndex) ? currentSkills.filter(i => i !== skillIndex) : [...currentSkills, skillIndex];
-    setStudentProgressData(prev => ({ ...prev, [currentSubjectKey]: newSkills }));
+    
+    let newSkills;
+    if (currentSkills.includes(skillIndex)) {
+      newSkills = currentSkills.filter(i => i !== skillIndex);
+    } else {
+      newSkills = [...currentSkills, skillIndex];
+    }
+    
+    const newProgressData = {
+      ...studentProgressData,
+      [currentSubjectKey]: newSkills
+    };
+
+    // Optimistic UI Update
+    setStudentProgressData(newProgressData);
+
+    // Auto Save to Firestore
+    try {
+       const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForProgress.id);
+       await updateDoc(ref, {
+         progress: newProgressData
+       });
+    } catch (err) {
+       console.error("Error auto-saving progress:", err);
+    }
   };
 
   const exportToExcel = () => {
@@ -439,9 +461,7 @@ export default function StudentDatabaseApp() {
     try {
       const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForAttendance.id);
       const existingRecord = selectedStudentForAttendance.attendanceRecords?.find(r => r.date === newRecord.date);
-      if (existingRecord) {
-        await updateDoc(ref, { attendanceRecords: arrayRemove(existingRecord) });
-      }
+      if (existingRecord) await updateDoc(ref, { attendanceRecords: arrayRemove(existingRecord) });
       await updateDoc(ref, { attendanceRecords: arrayUnion(newRecord) });
       setIsAttendanceModalOpen(false); // Auto close
     } catch (err) { console.error("Error marking attendance:", err); }
@@ -458,15 +478,10 @@ export default function StudentDatabaseApp() {
     if (!user || !selectedStudentForNotes || !db) return;
     const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForNotes.id);
     let newNotes = [...(selectedStudentForNotes.notes || [])];
-    if (noteForm.id) {
-      newNotes = newNotes.map(n => n.id === noteForm.id ? { ...n, text: noteForm.text, date: noteForm.date } : n);
-    } else {
-      newNotes.push({ id: Date.now().toString(), text: noteForm.text, date: noteForm.date, timestamp: Date.now() });
-    }
-    try {
-      await updateDoc(ref, { notes: newNotes });
-      setNoteForm({ id: null, text: '', date: new Date().toISOString().split('T')[0] }); 
-    } catch (err) { console.error("Error saving note:", err); }
+    if (noteForm.id) newNotes = newNotes.map(n => n.id === noteForm.id ? { ...n, text: noteForm.text, date: noteForm.date } : n);
+    else newNotes.push({ id: Date.now().toString(), text: noteForm.text, date: noteForm.date, timestamp: Date.now() });
+    try { await updateDoc(ref, { notes: newNotes }); setNoteForm({ id: null, text: '', date: new Date().toISOString().split('T')[0] }); } 
+    catch (err) { console.error("Error saving note:", err); }
   };
 
   const deleteNote = async (noteId) => {
@@ -639,26 +654,45 @@ export default function StudentDatabaseApp() {
     const isSelected = selectedAdminStudent === student.id;
 
     let gradientClass = 'from-blue-400 to-blue-600';
-    if (isLulus) gradientClass = 'from-purple-400 to-purple-600';
-    else if (isMbk) gradientClass = 'from-indigo-400 to-indigo-600';
-    else if (isProfile) gradientClass = stats.percent >= 75 ? 'from-emerald-400 to-emerald-600' : 'from-amber-400 to-amber-600';
+    if (isLulus) {
+        gradientClass = 'from-purple-400 to-purple-600';
+    } else if (isMbk) {
+        gradientClass = 'from-indigo-400 to-indigo-600';
+    } else if (isProfile) {
+        gradientClass = stats.percent >= 75 ? 'from-emerald-400 to-emerald-600' : 'from-amber-400 to-amber-600';
+    }
 
     const handleCardClick = () => {
-      if (role === 'admin') setSelectedAdminStudent(isSelected ? null : student.id);
+      if (role === 'admin') {
+        setSelectedAdminStudent(isSelected ? null : student.id);
+      }
     };
 
     return (
-      <div key={student.id} onClick={handleCardClick} className={`bg-slate-800 rounded-2xl shadow-sm hover:shadow-lg border transition-all duration-300 ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-500 scale-[1.02]' : 'border-slate-700 hover:-translate-y-1'} group relative overflow-hidden flex flex-col cursor-pointer`}>
+      <div 
+        key={student.id} 
+        onClick={handleCardClick}
+        className={`bg-slate-800 rounded-2xl shadow-sm hover:shadow-lg border transition-all duration-300 ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-500 scale-[1.02]' : 'border-slate-700 hover:-translate-y-1'} group relative overflow-hidden flex flex-col cursor-pointer`}
+      >
         {/* Desktop View (Vertical) */}
         <div className={`hidden sm:flex flex-col items-center gap-4 ${isMbk ? 'p-6' : 'p-4'}`}>
           <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size={isMbk ? "w-24 h-24" : "w-16 h-16"} onClick={(e) => { e.stopPropagation(); if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+          
           <div className="w-full text-center">
             <h3 className={`font-bold ${isMbk ? 'text-lg' : 'text-sm'} text-white leading-tight mb-1 break-words`}>{student.name}</h3>
+            
             {isMbk ? (
                <>
-                 <div className="flex items-center justify-center gap-2 mb-3"><CreditCard size={16} className="text-slate-400" /><span className="font-bold text-slate-300 tracking-wide font-mono">{student.ic}</span></div>
-                 <div className="bg-indigo-900/30 p-2 rounded-lg text-sm font-medium text-indigo-200 mb-2">{year < 1 ? 'Pra' : `Tahun ${year}`}</div>
-                 <div className="text-sm text-slate-400 font-medium">{student.gender} • <span className={`px-2 py-0.5 rounded text-xs font-bold ${student.mbkType === 'OKU' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-amber-900/30 text-amber-400'}`}>{student.mbkType || 'MBK'}</span></div>
+                 <div className="flex items-center justify-center gap-2 mb-3">
+                   <CreditCard size={16} className="text-slate-400" />
+                   <span className="font-bold text-slate-300 tracking-wide font-mono">{student.ic}</span>
+                 </div>
+                 <div className="bg-indigo-900/30 p-2 rounded-lg text-sm font-medium text-indigo-200 mb-2">
+                   {year < 1 ? 'Pra' : `Tahun ${year}`}
+                 </div>
+                 <div className="text-sm text-slate-400 font-medium">
+                   {student.gender} • <span className={`px-2 py-0.5 rounded text-xs font-bold ${student.mbkType === 'OKU' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-amber-900/30 text-amber-400'}`}>{student.mbkType || 'MBK'}</span>
+                 </div>
                </>
             ) : (
                <>
@@ -668,22 +702,48 @@ export default function StudentDatabaseApp() {
                  {isLulus && <div className="text-[10px] text-purple-400 font-semibold bg-purple-900/30 px-1.5 py-0.5 rounded border border-purple-800 inline-block mt-1">Grad: {student.graduationDate}</div>}
                </>
             )}
+
             {isProfile && (
               <div className="flex flex-col gap-1 w-full mt-1">
-                <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase"><span>Attendance</span><span className={stats.percent >= 75 ? 'text-emerald-400' : 'text-amber-400'}>{stats.percent}%</span></div>
-                <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden"><div className={`h-full rounded-full ${stats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${stats.percent}%` }}></div></div>
+                <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
+                  <span>Attendance</span>
+                  <span className={stats.percent >= 75 ? 'text-emerald-400' : 'text-amber-400'}>{stats.percent}%</span>
+                </div>
+                <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                  <div className={`h-full rounded-full ${stats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${stats.percent}%` }}></div>
+                </div>
               </div>
             )}
           </div>
           
-          {isMbk && student.remarks && <div className="w-full mt-2 p-3 bg-yellow-900/20 border border-yellow-800/50 rounded-lg flex items-start gap-2 text-left"><MessageSquare size={16} className="text-yellow-500 mt-0.5 flex-shrink-0" /><p className="text-xs text-slate-300 italic">{student.remarks}</p></div>}
+          {isMbk && student.remarks && (
+            <div className="w-full mt-2 p-3 bg-yellow-900/20 border border-yellow-800/50 rounded-lg flex items-start gap-2 text-left">
+              <MessageSquare size={16} className="text-yellow-500 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-slate-300 italic">{student.remarks}</p>
+            </div>
+          )}
+          
           {isMbk && (
             <div className="mt-2 w-full pt-4 border-t border-slate-700 flex flex-col gap-2">
-              <button onClick={(e) => { e.stopPropagation(); window.open(student.docLink, '_blank'); }} disabled={!student.docLink} className={`flex-1 flex items-center justify-center gap-2 text-sm font-bold text-white py-2.5 rounded-xl transition-all shadow-sm ${student.docLink ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-700 cursor-not-allowed text-slate-500'}`}><FileText size={16} /> Docs</button>
-              {student.mbkType === 'OKU' && student.qrCodeUrl && (<button onClick={(e) => { e.stopPropagation(); setFullScreenImage(student.qrCodeUrl); }} className="flex items-center justify-center gap-2 text-sm font-bold py-2.5 rounded-xl transition-all shadow-sm border bg-slate-800 text-white border-slate-600 hover:bg-slate-700"><QrCode size={16} /> Show QR</button>)}
+              <button 
+                onClick={(e) => { e.stopPropagation(); window.open(student.docLink, '_blank'); }} 
+                disabled={!student.docLink} 
+                className={`flex-1 flex items-center justify-center gap-2 text-sm font-bold text-white py-2.5 rounded-xl transition-all shadow-sm ${student.docLink ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-700 cursor-not-allowed text-slate-500'}`}
+              >
+                <FileText size={16} /> Docs
+              </button>
+              {student.mbkType === 'OKU' && student.qrCodeUrl && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setFullScreenImage(student.qrCodeUrl); }} 
+                  className="flex items-center justify-center gap-2 text-sm font-bold py-2.5 rounded-xl transition-all shadow-sm border bg-slate-800 text-white border-slate-600 hover:bg-slate-700"
+                >
+                  <QrCode size={16} /> Show QR
+                </button>
+              )}
             </div>
           )}
 
+          {/* Desktop Admin Hover Controls */}
           {role === 'admin' && (
             <div className={`absolute top-2 right-2 flex ${isMbk ? 'flex-row' : 'flex-col'} gap-1 transition-opacity duration-200 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} bg-slate-800/90 p-1 rounded-lg backdrop-blur-sm shadow-sm border border-slate-700`}>
                {(!isMbk && !isLulus) && <button onClick={(e) => { e.stopPropagation(); openNotesModal(student); }} className="p-1.5 text-amber-400 hover:bg-slate-700 rounded transition-colors" title="Notes"><StickyNote size={14} /></button>}
@@ -698,8 +758,11 @@ export default function StudentDatabaseApp() {
         {/* Mobile View (Compact Horizontal) */}
         <div className="sm:hidden flex flex-row items-start p-3 gap-3 relative z-10">
           <div className={`absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b ${gradientClass}`}></div>
+          
           <div className="flex flex-col items-center gap-2">
             <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-16 h-16" onClick={(e) => { e.stopPropagation(); if(student.photoUrl) setFullScreenImage(student.photoUrl); }}/>
+            
+            {/* Mobile Admin Controls under Avatar (Touch optimized) */}
             {role === 'admin' && isSelected && (
               <div className="grid grid-cols-2 gap-1 w-[70px]">
                  {(!isMbk && !isLulus) && <button onClick={(e) => { e.stopPropagation(); openNotesModal(student); }} className="p-1 text-amber-500 bg-slate-700 border-slate-600 rounded border flex justify-center"><StickyNote size={12} /></button>}
@@ -714,26 +777,41 @@ export default function StudentDatabaseApp() {
           <div className="flex-1 min-w-0 text-left">
             <h3 className="font-bold text-sm text-white leading-tight mb-1 break-words">{student.name}</h3>
             <div className="text-xs font-medium text-slate-400 mb-0.5">{isMbk ? (year < 1 ? 'Pra' : `Tahun ${year}`) : student.className}</div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-1">{student.gender || 'Lelaki'}
+            
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-1">
+               {student.gender || 'Lelaki'}
                {isMbk && <span className={`px-1.5 py-0.5 rounded border text-[9px] ${student.mbkType === 'OKU' ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800' : 'bg-amber-900/30 text-amber-400 border-amber-800'}`}>{student.mbkType || 'MBK'}</span>}
             </div>
+            
             {!isMbk && !isLulus && <div className={`inline-block text-[10px] font-bold text-white px-2 py-0.5 rounded-md mb-1 shadow-sm ${getSubjectBadgeColor(student.subject)}`}>{student.subject}</div>}
+
             {isProfile && (
               <div className="flex flex-col gap-1 w-full mt-1">
-                <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase"><span>Attendance</span><span className={stats.percent >= 75 ? 'text-emerald-400' : 'text-amber-400'}>{stats.percent}%</span></div>
-                <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden"><div className={`h-full rounded-full ${stats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${stats.percent}%` }}></div></div>
+                <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
+                  <span>Attendance</span>
+                  <span className={stats.percent >= 75 ? 'text-emerald-400' : 'text-amber-400'}>{stats.percent}%</span>
+                </div>
+                <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                  <div className={`h-full rounded-full ${stats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${stats.percent}%` }}></div>
+                </div>
               </div>
             )}
+
             {isMbk && student.remarks && <div className="text-[10px] text-slate-400 italic bg-yellow-900/20 px-2 py-1 rounded border border-yellow-800/50 flex items-start gap-1 mt-1"><MessageSquare size={10} className="mt-0.5 flex-shrink-0 text-yellow-500" /><span className="line-clamp-2">{student.remarks}</span></div>}
+            
             {isMbk && (
               <div className="mt-2 flex flex-col gap-1">
                  <button onClick={(e) => { e.stopPropagation(); window.open(student.docLink, '_blank'); }} disabled={!student.docLink} className={`flex items-center justify-center gap-1 text-[10px] font-bold py-1 px-2 rounded border ${student.docLink ? 'bg-indigo-900/30 text-indigo-400 border-indigo-800' : 'bg-slate-800 border-slate-700 cursor-not-allowed text-slate-500'}`}><FileText size={12} /> {student.docLink ? 'Docs' : 'No Docs'}</button>
-                 {student.mbkType === 'OKU' && student.qrCodeUrl && (<button onClick={(e) => { e.stopPropagation(); setFullScreenImage(student.qrCodeUrl); }} className="flex items-center justify-center gap-1 text-[10px] font-bold py-1 px-2 rounded border bg-emerald-900/30 text-emerald-400 border-emerald-800"><QrCode size={12} /> QR Code</button>)}
+                 {student.mbkType === 'OKU' && student.qrCodeUrl && (
+                   <button onClick={(e) => { e.stopPropagation(); setFullScreenImage(student.qrCodeUrl); }} className="flex items-center justify-center gap-1 text-[10px] font-bold py-1 px-2 rounded border bg-emerald-900/30 text-emerald-400 border-emerald-800"><QrCode size={12} /> QR Code</button>
+                 )}
               </div>
             )}
+
             {isLulus && <div className="text-[10px] text-purple-400 font-semibold bg-purple-900/30 px-1.5 py-0.5 rounded border border-purple-800 inline-block mt-1">Grad: {student.graduationDate}</div>}
           </div>
         </div>
+
         {student.isNewStudent && <div className="absolute top-2 left-3 sm:top-2 sm:right-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse z-20 flex items-center gap-0.5"><span className="w-1.5 h-1.5 bg-white rounded-full"></span> NEW</div>}
       </div>
     );
@@ -747,6 +825,7 @@ export default function StudentDatabaseApp() {
       <nav className="backdrop-blur-md border-b sticky top-0 z-30 bg-slate-900/90 border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
+            
             <div className="flex items-center gap-3">
               <div className="bg-indigo-600 p-2.5 rounded-xl shadow-md"><GraduationCap className="text-white h-6 w-6" /></div>
               <span className="font-bold text-lg tracking-tight hidden sm:block text-white">
@@ -759,14 +838,22 @@ export default function StudentDatabaseApp() {
             
             <div className="flex items-center gap-3">
               <div className="rounded-full p-1 flex items-center text-xs font-bold shadow-inner bg-slate-800">
-                <button onClick={() => handleRoleSwitch('admin')} className={`px-4 py-1.5 rounded-full transition-all duration-300 flex items-center gap-1.5 ${role === 'admin' ? 'bg-slate-700 text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
-                  {role === 'admin' && <Shield size={12} className="text-indigo-400" />} Admin
+                <button 
+                  onClick={() => handleRoleSwitch('admin')} 
+                  className={`px-4 py-1.5 rounded-full transition-all duration-300 flex items-center gap-1.5 ${role === 'admin' ? 'bg-slate-700 text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                >
+                  {role === 'admin' && <Shield size={12} className="text-indigo-400" />}
+                  Admin
                 </button>
-                <button onClick={() => handleRoleSwitch('user')} className={`px-4 py-1.5 rounded-full transition-all duration-300 ${role === 'user' ? 'bg-slate-700 text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
+                <button 
+                  onClick={() => handleRoleSwitch('user')} 
+                  className={`px-4 py-1.5 rounded-full transition-all duration-300 ${role === 'user' ? 'bg-slate-700 text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                >
                   User
                 </button>
               </div>
             </div>
+
           </div>
         </div>
       </nav>
@@ -810,7 +897,8 @@ export default function StudentDatabaseApp() {
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Year</label>
                   <select 
                     className="w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 appearance-none font-medium bg-slate-700 border-slate-600 text-white"
-                    value={statsFilters.year} onChange={(e) => setStatsFilters(p => ({...p, year: e.target.value}))}
+                    value={statsFilters.year}
+                    onChange={(e) => setStatsFilters(p => ({...p, year: e.target.value}))}
                   >
                     <option value="All">Semua Tahun</option>
                     {availableYears.filter(y => y !== 'All').map(y => <option key={y} value={y}>{`Tahun ${y}`}</option>)}
@@ -821,7 +909,8 @@ export default function StudentDatabaseApp() {
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Gender</label>
                   <select 
                     className="w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 appearance-none font-medium bg-slate-700 border-slate-600 text-white"
-                    value={statsFilters.gender} onChange={(e) => setStatsFilters(p => ({...p, gender: e.target.value}))}
+                    value={statsFilters.gender}
+                    onChange={(e) => setStatsFilters(p => ({...p, gender: e.target.value}))}
                   >
                     <option value="All">Semua Jantina</option>
                     <option value="Lelaki">Lelaki</option>
@@ -833,7 +922,8 @@ export default function StudentDatabaseApp() {
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Subject</label>
                   <select 
                     className="w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 appearance-none font-medium bg-slate-700 border-slate-600 text-white"
-                    value={statsFilters.subject} onChange={(e) => setStatsFilters(p => ({...p, subject: e.target.value}))}
+                    value={statsFilters.subject}
+                    onChange={(e) => setStatsFilters(p => ({...p, subject: e.target.value}))}
                   >
                     <option value="All">Semua Subjek</option>
                     {subjects.map(s => <option key={s} value={s}>{s}</option>)}
@@ -848,7 +938,9 @@ export default function StudentDatabaseApp() {
                  <p className="text-sm font-bold uppercase tracking-wider text-orange-400">Students Found (Pemulihan Only)</p>
                  <h2 className="text-5xl font-extrabold mt-1 tracking-tight text-orange-300">{filteredStudents.length}</h2>
               </div>
-              <div className="p-4 rounded-2xl bg-orange-900/50"><PieChart className="text-orange-500 w-12 h-12" /></div>
+              <div className="p-4 rounded-2xl bg-orange-900/50">
+                <PieChart className="text-orange-500 w-12 h-12" />
+              </div>
             </div>
 
             {filteredStudents.length > 0 && (
@@ -856,14 +948,23 @@ export default function StudentDatabaseApp() {
                 <div className="overflow-x-auto w-full">
                   <table className="w-full text-left text-sm whitespace-nowrap">
                     <thead className="border-b bg-slate-800 border-slate-700">
-                      <tr><th className="px-6 py-4 font-bold text-slate-300">Name</th><th className="px-6 py-4 font-bold text-slate-300">Gender</th><th className="px-6 py-4 font-bold text-slate-300">Class</th><th className="px-6 py-4 font-bold text-slate-300">Subject</th></tr>
+                      <tr>
+                        <th className="px-6 py-4 font-bold text-slate-300">Name</th>
+                        <th className="px-6 py-4 font-bold text-slate-300">Gender</th>
+                        <th className="px-6 py-4 font-bold text-slate-300">Class</th>
+                        <th className="px-6 py-4 font-bold text-slate-300">Subject</th>
+                      </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-700">
                       {filteredStudents.map(student => (
                         <tr key={student.id} className="hover:bg-slate-700/50 transition-colors">
                           <td className="px-6 py-4 font-bold text-white">{student.name}</td>
                           <td className="px-6 py-4 text-slate-400">{student.gender || 'Lelaki'}</td>
-                          <td className="px-6 py-4"><span className="rounded px-2 py-1 font-mono text-xs bg-slate-700 text-slate-300">{student.className}</span></td>
+                          <td className="px-6 py-4">
+                            <span className="rounded px-2 py-1 font-mono text-xs bg-slate-700 text-slate-300">
+                              {student.className}
+                            </span>
+                          </td>
                           <td className="px-6 py-4 text-slate-400">{student.subject}</td>
                         </tr>
                       ))}
@@ -878,8 +979,141 @@ export default function StudentDatabaseApp() {
         {/* --- PROGRESS SECTION --- */}
         {currentSection === 'progress' && (
            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col">
-             {selectedStudentForProgress ? (
+             
+             {/* LIST VIEW (Hidden when student selected) */}
+             <div className={`bg-slate-800 rounded-3xl border border-slate-700 shadow-sm p-6 md:p-8 flex-col h-[calc(100vh-12rem)] min-h-[500px] ${selectedStudentForProgress ? 'hidden' : 'flex'}`}>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                  <div className="flex items-center gap-4">
+                     <div className="bg-indigo-900/50 w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0">
+                       <TrendingUp className="text-indigo-400 w-6 h-6" />
+                     </div>
+                     <div>
+                       <h2 className="text-2xl font-extrabold text-white tracking-tight">Student Progress Tracker</h2>
+                       <p className="text-sm text-slate-400">Select a student to view or update mastery of skills (Kemahiran).</p>
+                     </div>
+                  </div>
+                </div>
+                
+                {/* Filters */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                    <div className="relative group">
+                      <select 
+                        className="w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 font-bold text-sm appearance-none bg-slate-700 border-slate-600 text-white cursor-pointer" 
+                        value={profileYearFilter} 
+                        onChange={(e) => setProfileYearFilter(e.target.value)}
+                      >
+                        <option value="All">All Years</option>
+                        {availableYears.map(y => y !== 'All' && <option key={y} value={y}>Tahun {y}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-300" />
+                    </div>
+                    <div className="relative group">
+                      <select 
+                        className="w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 font-bold text-sm appearance-none bg-slate-700 border-slate-600 text-white cursor-pointer" 
+                        value={classFilter} 
+                        onChange={(e) => setClassFilter(e.target.value)}
+                      >
+                        <option value="All">All Classes</option>
+                        {availableClasses.map(c => c !== 'All' && <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-300" />
+                    </div>
+                    <div className="relative group">
+                      <select 
+                        className="w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 font-bold text-sm appearance-none bg-slate-700 border-slate-600 text-white cursor-pointer" 
+                        value={subjectFilter} 
+                        onChange={(e) => setSubjectFilter(e.target.value)}
+                      >
+                        <option value="All">Semua Subjek</option>
+                        {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-300" />
+                    </div>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-2.5 text-slate-400 w-5 h-5" />
+                      <input 
+                        type="text" 
+                        placeholder="Search student name..." 
+                        className="w-full pl-10 pr-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm bg-slate-700 border-slate-600 text-white placeholder-slate-400"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+                </div>
+
+                <div 
+                  ref={progressListContainerRef}
+                  className="flex-1 overflow-y-auto pr-2 space-y-3"
+                >
+                   {filteredStudents.map(student => {
+                       const bmProgress = Math.round(((student.progress?.bm?.length || 0) / 32) * 100);
+                       const mathProgress = Math.round(((student.progress?.math?.length || 0) / 12) * 100);
+                       const takesBM = student.subject === 'Pemulihan BM' || student.subject === 'Pemulihan BM dan Matematik';
+                       const takesMath = student.subject === 'Pemulihan Matematik' || student.subject === 'Pemulihan BM dan Matematik';
+
+                       return (
+                       <button 
+                         key={student.id}
+                         onClick={() => {
+                            if (progressListContainerRef.current) {
+                                progressScrollRef.current = progressListContainerRef.current.scrollTop;
+                            }
+                            setSelectedStudentForProgress(student);
+                            setStudentProgressData(student.progress || { bm: [], math: [] });
+                            if ((student.subject || '').includes('Matematik') && !(student.subject || '').includes('BM')) {
+                              setProgressSubject('MATH');
+                            } else {
+                              setProgressSubject('BM');
+                            }
+                         }}
+                         className="w-full flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border rounded-2xl transition-all text-left group bg-slate-800 border-slate-700 hover:border-indigo-500 hover:shadow-md"
+                       >
+                          <div className="flex items-center gap-3 flex-1 min-w-0 w-full">
+                            <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-12 h-12" />
+                            <div className="min-w-0">
+                               <h4 className="font-bold text-white text-sm group-hover:text-indigo-400 truncate transition-colors">{student.name}</h4>
+                               <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                                 <span className="font-semibold bg-slate-700 px-2 py-0.5 rounded text-slate-300">{student.className}</span>
+                                 <span>{student.gender}</span>
+                               </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto mt-3 sm:mt-0">
+                             {takesBM && (
+                               <div className="w-full sm:w-32 flex flex-col gap-1.5">
+                                 <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase">
+                                   <span>BM</span>
+                                   <span className="text-indigo-400">{bmProgress}%</span>
+                                 </div>
+                                 <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                                   <div className="h-full rounded-full bg-indigo-500 transition-all" style={{width: `${bmProgress}%`}}></div>
+                                 </div>
+                               </div>
+                             )}
+                             {takesMath && (
+                               <div className="w-full sm:w-32 flex flex-col gap-1.5">
+                                 <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase">
+                                   <span>MATH</span>
+                                   <span className="text-emerald-400">{mathProgress}%</span>
+                                 </div>
+                                 <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                                   <div className="h-full rounded-full bg-emerald-500 transition-all" style={{width: `${mathProgress}%`}}></div>
+                                 </div>
+                               </div>
+                             )}
+                             <ArrowRight size={18} className="text-slate-600 group-hover:text-indigo-400 transition-colors hidden sm:block flex-shrink-0 ml-2" />
+                          </div>
+                       </button>
+                     )})}
+                   {filteredStudents.length === 0 && <p className="text-slate-400 text-sm py-8 text-center bg-slate-800/50 rounded-2xl border border-dashed border-slate-700">No students found matching your search.</p>}
+                </div>
+             </div>
+
+             {/* DETAIL VIEW (Shown when student selected) */}
+             {selectedStudentForProgress && (
                <div className="rounded-3xl border shadow-sm overflow-hidden bg-slate-800 border-slate-700">
+                 
                  <div className="border-b p-6 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-900/50 border-slate-700">
                     <div className="flex items-center gap-4">
                       <Avatar name={selectedStudentForProgress.name} color={selectedStudentForProgress.color} photoUrl={selectedStudentForProgress.photoUrl} size="w-20 h-20" />
@@ -891,15 +1125,37 @@ export default function StudentDatabaseApp() {
                         </div>
                       </div>
                     </div>
-                    <button onClick={() => setSelectedStudentForProgress(null)} className="px-4 py-2 border rounded-xl text-sm font-bold shadow-sm bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700">Back to List</button>
+                    <button 
+                      onClick={() => {
+                        setSelectedStudentForProgress(null);
+                        setTimeout(() => {
+                           if (progressListContainerRef.current) {
+                             progressListContainerRef.current.scrollTop = progressScrollRef.current;
+                           }
+                        }, 0);
+                      }} 
+                      className="px-4 py-2 border rounded-xl text-sm font-bold shadow-sm bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700"
+                    >
+                      Back to List
+                    </button>
                  </div>
                  
                  <div className="flex border-b border-slate-700">
                     {(selectedStudentForProgress.subject === 'Pemulihan BM' || selectedStudentForProgress.subject === 'Pemulihan BM dan Matematik') && (
-                      <button onClick={() => setProgressSubject('BM')} className={`flex-1 py-4 text-center font-bold text-sm transition-colors ${progressSubject === 'BM' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>Bahasa Melayu</button>
+                      <button 
+                        onClick={() => setProgressSubject('BM')} 
+                        className={`flex-1 py-4 text-center font-bold text-sm transition-colors ${progressSubject === 'BM' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                      >
+                        Bahasa Melayu
+                      </button>
                     )}
                     {(selectedStudentForProgress.subject === 'Pemulihan Matematik' || selectedStudentForProgress.subject === 'Pemulihan BM dan Matematik') && (
-                      <button onClick={() => setProgressSubject('MATH')} className={`flex-1 py-4 text-center font-bold text-sm transition-colors ${progressSubject === 'MATH' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>Matematik</button>
+                      <button 
+                        onClick={() => setProgressSubject('MATH')} 
+                        className={`flex-1 py-4 text-center font-bold text-sm transition-colors ${progressSubject === 'MATH' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                      >
+                        Matematik
+                      </button>
                     )}
                  </div>
 
@@ -907,9 +1163,16 @@ export default function StudentDatabaseApp() {
                     <div className="mb-8">
                       <div className="flex justify-between items-end mb-2">
                         <h4 className="font-bold text-lg text-white">Overall Progress</h4>
-                        <span className="text-sm font-bold text-slate-400">{studentProgressData[progressSubject === 'BM' ? 'bm' : 'math']?.length || 0} / {progressSubject === 'BM' ? KEMAHIRAN_BM.length : KEMAHIRAN_MATH.length}</span>
+                        <span className="text-sm font-bold text-slate-400">
+                          {studentProgressData[progressSubject === 'BM' ? 'bm' : 'math']?.length || 0} / {progressSubject === 'BM' ? KEMAHIRAN_BM.length : KEMAHIRAN_MATH.length}
+                        </span>
                       </div>
-                      <RetroProgressBar progress={((studentProgressData[progressSubject === 'BM' ? 'bm' : 'math']?.length || 0) / (progressSubject === 'BM' ? KEMAHIRAN_BM.length : KEMAHIRAN_MATH.length)) * 100} />
+                      <RetroProgressBar 
+                          progress={
+                            ((studentProgressData[progressSubject === 'BM' ? 'bm' : 'math']?.length || 0) / 
+                            (progressSubject === 'BM' ? KEMAHIRAN_BM.length : KEMAHIRAN_MATH.length)) * 100
+                          } 
+                      />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -917,8 +1180,13 @@ export default function StudentDatabaseApp() {
                           const skillIndex = index + 1;
                           const subjectKey = progressSubject === 'BM' ? 'bm' : 'math';
                           const isCompleted = studentProgressData[subjectKey]?.includes(skillIndex);
+                          
                           return (
-                            <div key={index} onClick={() => { if(role === 'admin') toggleSkill(skillIndex); }} className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all duration-200 ${isCompleted ? (progressSubject === 'BM' ? 'bg-indigo-900/30 border-indigo-800' : 'bg-emerald-900/30 border-emerald-800') : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}>
+                            <div 
+                              key={index} 
+                              onClick={() => toggleSkill(skillIndex)}
+                              className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all duration-200 ${isCompleted ? (progressSubject === 'BM' ? 'bg-indigo-900/30 border-indigo-800' : 'bg-emerald-900/30 border-emerald-800') : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}
+                            >
                                <div className={`w-6 h-6 rounded-md flex items-center justify-center border transition-colors ${isCompleted ? (progressSubject === 'BM' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-emerald-600 border-emerald-600 text-white') : 'bg-slate-700 border-slate-600'}`}>
                                   {isCompleted && <Check size={16} strokeWidth={3} />}
                                </div>
@@ -927,124 +1195,7 @@ export default function StudentDatabaseApp() {
                           );
                        })}
                     </div>
-                    
-                    {role === 'admin' && (
-                      <div className="mt-8 pt-6 border-t flex justify-end border-slate-700">
-                        <button onClick={handleProgressUpdate} className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95"><Save size={18} /> Save Progress</button>
-                      </div>
-                    )}
                  </div>
-               </div>
-             ) : (
-               <div className="bg-slate-800 rounded-3xl border border-slate-700 shadow-sm p-6 md:p-8 flex flex-col h-[calc(100vh-12rem)] min-h-[500px]">
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                    <div className="flex items-center gap-4">
-                       <div className="bg-indigo-900/50 w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0">
-                         <TrendingUp className="text-indigo-400 w-6 h-6" />
-                       </div>
-                       <div>
-                         <h2 className="text-2xl font-extrabold text-white tracking-tight">Student Progress Tracker</h2>
-                         <p className="text-sm text-slate-400">Select a student to view or update mastery of skills (Kemahiran).</p>
-                       </div>
-                    </div>
-                  </div>
-                  
-                  {/* Filters */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-                      <div className="relative group">
-                        <select className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 font-bold text-sm appearance-none transition-colors text-white cursor-pointer" value={profileYearFilter} onChange={(e) => setProfileYearFilter(e.target.value)}>
-                          <option value="All">All Years</option>
-                          {availableYears.map(y => y !== 'All' && <option key={y} value={y}>Tahun {y}</option>)}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-300" />
-                      </div>
-                      <div className="relative group">
-                        <select className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 font-bold text-sm appearance-none transition-colors text-white cursor-pointer" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
-                          <option value="All">All Classes</option>
-                          {availableClasses.map(c => c !== 'All' && <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-300" />
-                      </div>
-                      <div className="relative group">
-                        <select className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 font-bold text-sm appearance-none transition-colors text-white cursor-pointer" value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
-                          <option value="All">Semua Subjek</option>
-                          {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-3 text-slate-400 w-4 h-4 pointer-events-none group-hover:text-slate-300" />
-                      </div>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-2.5 text-slate-400 w-5 h-5" />
-                        <input 
-                          type="text" 
-                          placeholder="Search student name..." 
-                          className="w-full pl-10 pr-4 py-2.5 bg-slate-700 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm text-white placeholder-slate-400"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                      </div>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto pr-2 space-y-3">
-                     {filteredStudents.map(student => {
-                         const bmProgress = Math.round(((student.progress?.bm?.length || 0) / 32) * 100);
-                         const mathProgress = Math.round(((student.progress?.math?.length || 0) / 12) * 100);
-                         const takesBM = student.subject === 'Pemulihan BM' || student.subject === 'Pemulihan BM dan Matematik';
-                         const takesMath = student.subject === 'Pemulihan Matematik' || student.subject === 'Pemulihan BM dan Matematik';
-
-                         return (
-                         <button 
-                           key={student.id}
-                           onClick={() => {
-                              setSelectedStudentForProgress(student);
-                              setStudentProgressData(student.progress || { bm: [], math: [] });
-                              if ((student.subject || '').includes('Matematik') && !(student.subject || '').includes('BM')) {
-                                setProgressSubject('MATH');
-                              } else {
-                                setProgressSubject('BM');
-                              }
-                           }}
-                           className="w-full flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-slate-800 border border-slate-700 rounded-2xl hover:border-indigo-500 hover:shadow-md transition-all text-left group"
-                         >
-                            <div className="flex items-center gap-3 flex-1 min-w-0 w-full">
-                              <Avatar name={student.name} color={student.color} photoUrl={student.photoUrl} size="w-12 h-12" />
-                              <div className="min-w-0">
-                                 <h4 className="font-bold text-white text-sm group-hover:text-indigo-400 truncate transition-colors">{student.name}</h4>
-                                 <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
-                                   <span className="font-semibold bg-slate-700 px-2 py-0.5 rounded text-slate-300">{student.className}</span>
-                                   <span>{student.gender}</span>
-                                 </div>
-                              </div>
-                            </div>
-                            
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto mt-3 sm:mt-0">
-                               {takesBM && (
-                                 <div className="w-full sm:w-32 flex flex-col gap-1.5">
-                                   <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase">
-                                     <span>BM</span>
-                                     <span className="text-indigo-400">{bmProgress}%</span>
-                                   </div>
-                                   <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                                     <div className="h-full rounded-full bg-indigo-500 transition-all" style={{width: `${bmProgress}%`}}></div>
-                                   </div>
-                                 </div>
-                               )}
-                               {takesMath && (
-                                 <div className="w-full sm:w-32 flex flex-col gap-1.5">
-                                   <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase">
-                                     <span>MATH</span>
-                                     <span className="text-emerald-400">{mathProgress}%</span>
-                                   </div>
-                                   <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                                     <div className="h-full rounded-full bg-emerald-500 transition-all" style={{width: `${mathProgress}%`}}></div>
-                                   </div>
-                                 </div>
-                               )}
-                               <ArrowRight size={18} className="text-slate-600 group-hover:text-indigo-400 transition-colors hidden sm:block flex-shrink-0 ml-2" />
-                            </div>
-                         </button>
-                       )})}
-                     {filteredStudents.length === 0 && <p className="text-slate-400 text-sm py-8 text-center bg-slate-800/50 rounded-2xl border border-dashed border-slate-700">No students found matching your search.</p>}
-                  </div>
                </div>
              )}
            </div>
@@ -1122,17 +1273,33 @@ export default function StudentDatabaseApp() {
                 {/* Top Action Buttons */}
                 <div className="flex gap-3 w-full lg:w-auto items-center ml-auto">
                    {(role === 'admin' && (currentSection === 'profile' || currentSection === 'mbk')) && (
-                     <button onClick={openAdd} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow-md font-bold text-sm"><Plus size={18} strokeWidth={2.5}/> Add Student</button>
+                     <button 
+                       onClick={openAdd} 
+                       className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow-md font-bold text-sm"
+                     >
+                       <Plus size={18} strokeWidth={2.5}/> Add Student
+                     </button>
                    )}
-                   <button onClick={exportToExcel} className="flex-1 lg:flex-none flex items-center justify-center gap-2 text-sm font-bold px-5 py-2.5 border rounded-xl bg-slate-700 border-slate-600 text-white hover:bg-slate-600"><Download size={18} /> Export Excel</button>
+                   <button 
+                     onClick={exportToExcel} 
+                     className="flex-1 lg:flex-none flex items-center justify-center gap-2 text-sm font-bold px-5 py-2.5 border rounded-xl bg-slate-700 border-slate-600 text-white hover:bg-slate-600"
+                   >
+                     <Download size={18} /> Export Excel
+                   </button>
                 </div>
              </div>
 
              {/* Dynamic Grids */}
              {loading ? (
-               <div className="text-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div><p className="text-slate-400">Loading database...</p></div>
+               <div className="text-center py-24">
+                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div>
+                 <p className="text-slate-400">Loading database...</p>
+               </div>
              ) : (currentSection === 'profile' && Object.keys(groupedProfileStudents).length === 0) || (currentSection === 'plan' && Object.keys(groupedPlanStudents).length === 0) || (currentSection === 'mbk' && filteredStudents.length === 0) || (currentSection === 'lulus' && Object.keys(groupedLulusStudents).length === 0) ? (
-               <div className="text-center py-24 rounded-3xl border border-dashed shadow-sm bg-slate-800 border-slate-700"><Users className="text-slate-400 w-10 h-10 mx-auto mb-4"/><h3 className="text-xl font-bold text-white">No students found</h3></div>
+               <div className="text-center py-24 rounded-3xl border border-dashed shadow-sm bg-slate-800 border-slate-700">
+                 <Users className="text-slate-400 w-10 h-10 mx-auto mb-4"/>
+                 <h3 className="text-xl font-bold text-white">No students found</h3>
+               </div>
              ) : (
                <div className="space-y-10">
                   {/* Profile Groups */}
@@ -1141,10 +1308,16 @@ export default function StudentDatabaseApp() {
                     return (
                       <div key={className} className="rounded-3xl border shadow-sm overflow-hidden bg-slate-800 border-slate-700">
                         <div className={`px-8 py-4 border-b ${style.border} flex justify-between items-center bg-slate-800`}>
-                          <h3 className={`font-extrabold ${style.text} text-lg flex items-center gap-3`}><School className={style.icon} size={20}/> {className}</h3>
-                          <span className={`text-xs font-bold bg-slate-900 border-slate-700 ${style.icon} px-3 py-1.5 border rounded-lg shadow-sm`}>{groupedProfileStudents[className].length} Students</span>
+                          <h3 className={`font-extrabold ${style.text} text-lg flex items-center gap-3`}>
+                            <School className={style.icon} size={20}/> {className}
+                          </h3>
+                          <span className={`text-xs font-bold bg-slate-900 border-slate-700 ${style.icon} px-3 py-1.5 border rounded-lg shadow-sm`}>
+                            {groupedProfileStudents[className].length} Students
+                          </span>
                         </div>
-                        <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">{groupedProfileStudents[className].map(s => renderStudentCard(s, 'profile'))}</div>
+                        <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                          {groupedProfileStudents[className].map(s => renderStudentCard(s, 'profile'))}
+                        </div>
                       </div>
                     )
                   })}
@@ -1153,10 +1326,16 @@ export default function StudentDatabaseApp() {
                   {currentSection === 'plan' && Object.keys(groupedPlanStudents).sort().map(yearGrp => (
                     <div key={yearGrp} className="rounded-3xl border shadow-sm overflow-hidden bg-slate-800 border-slate-700">
                       <div className="px-8 py-4 border-b flex justify-between items-center bg-blue-900/30 border-blue-800">
-                        <h3 className="font-extrabold text-lg flex items-center gap-2 text-blue-400"><BookOpenCheck className="text-blue-500" size={20}/>{yearGrp}</h3>
-                        <span className="text-xs font-bold px-3 py-1.5 border rounded-lg shadow-sm bg-slate-900 border-blue-800 text-blue-400">{groupedPlanStudents[yearGrp].length} Students</span>
+                        <h3 className="font-extrabold text-lg flex items-center gap-2 text-blue-400">
+                          <BookOpenCheck className="text-blue-500" size={20}/>{yearGrp}
+                        </h3>
+                        <span className="text-xs font-bold px-3 py-1.5 border rounded-lg shadow-sm bg-slate-900 border-blue-800 text-blue-400">
+                          {groupedPlanStudents[yearGrp].length} Students
+                        </span>
                       </div>
-                      <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">{groupedPlanStudents[yearGrp].map(s => renderStudentCard(s, 'plan'))}</div>
+                      <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {groupedPlanStudents[yearGrp].map(s => renderStudentCard(s, 'plan'))}
+                      </div>
                     </div>
                   ))}
 
@@ -1171,10 +1350,16 @@ export default function StudentDatabaseApp() {
                   {currentSection === 'lulus' && Object.keys(groupedLulusStudents).sort().map(yearGrp => (
                     <div key={yearGrp} className="rounded-3xl border shadow-sm overflow-hidden bg-slate-800 border-slate-700">
                       <div className="px-8 py-4 border-b flex justify-between items-center bg-purple-900/30 border-purple-800">
-                        <h3 className="font-extrabold text-lg flex items-center gap-2 text-purple-400"><Calendar className="text-purple-500" size={20}/>{yearGrp}</h3>
-                        <span className="text-xs font-bold px-3 py-1.5 border rounded-lg shadow-sm bg-slate-900 border-purple-800 text-purple-400">{groupedLulusStudents[yearGrp].students.length} Students</span>
+                        <h3 className="font-extrabold text-lg flex items-center gap-2 text-purple-400">
+                          <Calendar className="text-purple-500" size={20}/>{yearGrp}
+                        </h3>
+                        <span className="text-xs font-bold px-3 py-1.5 border rounded-lg shadow-sm bg-slate-900 border-purple-800 text-purple-400">
+                          {groupedLulusStudents[yearGrp].students.length} Students
+                        </span>
                       </div>
-                      <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">{groupedLulusStudents[yearGrp].students.map(s => renderStudentCard(s, 'lulus'))}</div>
+                      <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {groupedLulusStudents[yearGrp].students.map(s => renderStudentCard(s, 'lulus'))}
+                      </div>
                     </div>
                   ))}
                </div>
@@ -1183,8 +1368,20 @@ export default function StudentDatabaseApp() {
         )}
 
         {/* --- GLOBAL MODALS (Image/Camera) --- */}
-        {rawImageSrc && <ImageAdjuster imageSrc={rawImageSrc} onSave={handleCropSave} onCancel={handleCropCancel} />}
-        {fullScreenImage && <ImageViewer src={fullScreenImage} onClose={() => setFullScreenImage(null)} />}
+        {rawImageSrc && (
+          <ImageAdjuster 
+            imageSrc={rawImageSrc} 
+            onSave={handleCropSave} 
+            onCancel={handleCropCancel} 
+          />
+        )}
+        
+        {fullScreenImage && (
+          <ImageViewer 
+            src={fullScreenImage} 
+            onClose={() => setFullScreenImage(null)} 
+          />
+        )}
       </main>
 
       {/* --- MOBILE BOTTOM NAV --- */}
@@ -1197,7 +1394,11 @@ export default function StudentDatabaseApp() {
            { id: 'stats', l: 'Stats', i: BarChart3 }, 
            { id: 'progress', l: 'Prog', i: TrendingUp }
          ].map(t => (
-            <button key={t.id} onClick={() => handleTabChange(t.id)} className={`flex flex-col items-center justify-center w-full py-3 transition-colors ${currentSection === t.id ? 'text-indigo-400 bg-indigo-900/20' : 'text-slate-500 hover:text-slate-300'}`}>
+            <button 
+              key={t.id} 
+              onClick={() => handleTabChange(t.id)} 
+              className={`flex flex-col items-center justify-center w-full py-3 transition-colors ${currentSection === t.id ? 'text-indigo-400 bg-indigo-900/20' : 'text-slate-500 hover:text-slate-300'}`}
+            >
               <t.i size={20} strokeWidth={currentSection===t.id ? 2.5 : 2}/>
               <span className="text-[10px] font-bold mt-1">{t.l}</span>
             </button>
@@ -1205,37 +1406,380 @@ export default function StudentDatabaseApp() {
       </div>
       
       {/* --- FUNCTIONAL MODALS --- */}
+      
+      {/* Admin Login */}
       <Modal isOpen={showAdminLogin} onClose={()=>{setShowAdminLogin(false); setLoginError('');}} title="Admin Login">
-        <div className="flex flex-col items-center justify-center mb-6"><div className="p-3 rounded-full mb-3 bg-indigo-900/30"><Lock className="w-8 h-8 text-indigo-400" /></div><p className="text-sm text-center text-slate-400">Enter admin password.</p></div>
-        <form onSubmit={handleAdminLogin} className="space-y-4"><input type="password" placeholder="Password" autoFocus className="w-full p-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white" value={adminPassword} onChange={e=>{setAdminPassword(e.target.value); setLoginError('');}}/>{loginError && <p className="text-red-500 text-xs">{loginError}</p>}<button className="w-full py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors">Login</button></form>
+        <div className="flex flex-col items-center justify-center mb-6">
+          <div className="p-3 rounded-full mb-3 bg-indigo-900/30">
+            <Lock className="w-8 h-8 text-indigo-400" />
+          </div>
+          <p className="text-sm text-center text-slate-400">Enter admin password.</p>
+        </div>
+        <form onSubmit={handleAdminLogin} className="space-y-4">
+          <input 
+            type="password" 
+            placeholder="Password" 
+            autoFocus 
+            className="w-full p-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white" 
+            value={adminPassword} 
+            onChange={e=>{setAdminPassword(e.target.value); setLoginError('');}}
+          />
+          {loginError && <p className="text-red-500 text-xs">{loginError}</p>}
+          <button className="w-full py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors">Login</button>
+        </form>
       </Modal>
 
+      {/* Delete Confirmation */}
       <Modal isOpen={deleteConfirmation.isOpen} onClose={()=>setDeleteConfirmation({isOpen:false})} title="Confirm Deletion">
-        <div className="flex flex-col items-center justify-center mb-6 text-center"><div className="p-4 rounded-full mb-4 bg-red-900/30"><Trash2 className="w-10 h-10 text-red-400" /></div><h4 className="text-lg font-bold mb-2 text-white">Delete Record?</h4><p className="text-slate-400">Are you sure you want to delete <span className="font-semibold text-white">{deleteConfirmation.studentName}</span>? This action cannot be undone.</p></div>
-        <div className="flex gap-3"><button onClick={()=>setDeleteConfirmation({isOpen:false})} className="flex-1 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors bg-slate-700 text-white hover:bg-slate-600">Cancel</button><button onClick={executeDelete} className="flex-1 px-4 py-2.5 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 shadow-sm transition-colors">Yes, Delete</button></div>
+        <div className="flex flex-col items-center justify-center mb-6 text-center">
+          <div className="p-4 rounded-full mb-4 bg-red-900/30">
+            <Trash2 className="w-10 h-10 text-red-400" />
+          </div>
+          <h4 className="text-lg font-bold mb-2 text-white">Delete Record?</h4>
+          <p className="text-slate-400">
+            Are you sure you want to delete <span className="font-semibold text-white">{deleteConfirmation.studentName}</span>? This action cannot be undone.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={()=>setDeleteConfirmation({isOpen:false})} className="flex-1 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors bg-slate-700 text-white hover:bg-slate-600">Cancel</button>
+          <button onClick={executeDelete} className="flex-1 px-4 py-2.5 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 shadow-sm transition-colors">Yes, Delete</button>
+        </div>
       </Modal>
 
+      {/* Move Status Confirmation */}
       <Modal isOpen={moveConfirmation.isOpen} onClose={()=>setMoveConfirmation({isOpen:false})} title="Change Status">
-        <div className="flex flex-col items-center justify-center mb-6 text-center"><div className="p-4 rounded-full mb-4 bg-blue-900/30"><ArrowLeftRight className="w-10 h-10 text-blue-400" /></div><h4 className="text-lg font-bold mb-2 text-white">Move Student?</h4><p className="mb-4 text-slate-400">{moveConfirmation.newStatus === 'Lulus' ? `Mark ${moveConfirmation.student?.name} as "Lulus Pemulihan"?` : `Move ${moveConfirmation.student?.name} back to "Profile Murid Pemulihan"?`}</p>{moveConfirmation.newStatus === 'Lulus' && (<div className="w-full text-left p-3 rounded-lg border bg-slate-700 border-slate-600"><label className="block text-xs font-semibold uppercase mb-1 text-slate-400">Graduation Date</label><div className="flex items-center gap-2"><Calendar size={16} className="text-slate-400" /><input type="date" className="bg-transparent border-none focus:ring-0 text-sm font-medium w-full p-0 style-color-scheme-dark text-white" value={moveDate} onChange={(e) => setMoveDate(e.target.value)} /></div></div>)}</div>
-        <div className="flex gap-3"><button onClick={()=>setMoveConfirmation({isOpen:false})} className="flex-1 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors bg-slate-700 text-white hover:bg-slate-600">Cancel</button><button onClick={executeMove} className="flex-1 px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-sm transition-colors">Confirm</button></div>
+        <div className="flex flex-col items-center justify-center mb-6 text-center">
+          <div className="p-4 rounded-full mb-4 bg-blue-900/30">
+            <ArrowLeftRight className="w-10 h-10 text-blue-400" />
+          </div>
+          <h4 className="text-lg font-bold mb-2 text-white">Move Student?</h4>
+          <p className="mb-4 text-slate-400">
+            {moveConfirmation.newStatus === 'Lulus' ? `Mark ${moveConfirmation.student?.name} as "Lulus Pemulihan"?` : `Move ${moveConfirmation.student?.name} back to "Profile Murid Pemulihan"?`}
+          </p>
+          {moveConfirmation.newStatus === 'Lulus' && (
+            <div className="w-full text-left p-3 rounded-lg border bg-slate-700 border-slate-600">
+              <label className="block text-xs font-semibold uppercase mb-1 text-slate-400">Graduation Date</label>
+              <div className="flex items-center gap-2">
+                <Calendar size={16} className="text-slate-400" />
+                <input 
+                  type="date" 
+                  className="bg-transparent border-none focus:ring-0 text-sm font-medium w-full p-0 style-color-scheme-dark text-white" 
+                  value={moveDate} 
+                  onChange={(e) => setMoveDate(e.target.value)} 
+                />
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3">
+          <button onClick={()=>setMoveConfirmation({isOpen:false})} className="flex-1 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors bg-slate-700 text-white hover:bg-slate-600">Cancel</button>
+          <button onClick={executeMove} className="flex-1 px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-sm transition-colors">Confirm</button>
+        </div>
       </Modal>
 
+      {/* Notes Modal */}
       <Modal isOpen={isNotesModalOpen} onClose={()=>setIsNotesModalOpen(false)} title="Catatan Murid">
-        <div className="space-y-6"><div className="flex items-center gap-4 p-4 rounded-xl bg-amber-900/20 border border-amber-800/50"><Avatar name={selectedStudentForNotes?.name||''} color={selectedStudentForNotes?.color||'bg-blue-500'} photoUrl={selectedStudentForNotes?.photoUrl}/><div><h4 className="font-bold text-white">{selectedStudentForNotes?.name}</h4><p className="text-sm text-slate-400">{selectedStudentForNotes?.className}</p></div></div><form onSubmit={saveNote} className="space-y-3"><div><label className="block text-xs font-semibold uppercase mb-1 text-slate-400">Date</label><input type="date" required className="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 style-color-scheme-dark bg-slate-700 border-slate-600 text-white" value={noteForm.date} onChange={e=>setNoteForm(p=>({...p, date:e.target.value}))}/></div><div><label className="block text-xs font-semibold uppercase mb-1 text-slate-400">Catatan (Note)</label><textarea required rows="3" placeholder="Enter note details here..." className="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 bg-slate-700 border-slate-600 text-white placeholder-slate-400" value={noteForm.text} onChange={e=>setNoteForm(p=>({...p, text:e.target.value}))}/></div><button type="submit" className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold shadow-sm transition-colors">{noteForm.id?'Update':'Add'} Note</button></form><div className="border-t pt-4 border-slate-700"><h5 className="text-sm font-bold mb-3 flex items-center gap-2 text-white"><Clock size={16} /> History</h5><div className="space-y-3 max-h-60 overflow-y-auto pr-2">{selectedStudentForNotes?.notes && selectedStudentForNotes.notes.length > 0 ? ([...selectedStudentForNotes.notes].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((n)=>(<div key={n.id} className="p-3 border rounded-xl text-sm group relative transition-colors bg-slate-800 border-slate-700"><div className="flex justify-between items-start mb-1"><span className="text-xs font-bold px-2 py-0.5 rounded border bg-slate-700 text-slate-300 border-slate-600">{n.date}</span><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg shadow-sm bg-slate-900/90"><button type="button" onClick={()=>startEditNote(n)} className="p-1 hover:bg-slate-800 rounded text-blue-400"><Edit2 size={14} /></button><button type="button" onClick={()=>deleteNote(n.id)} className="p-1 hover:bg-slate-800 rounded text-red-400"><Trash2 size={14} /></button></div></div><p className="text-sm mt-1 whitespace-pre-wrap text-slate-300">{n.text}</p></div>))) : (<p className="text-center text-sm py-4 text-slate-500">No notes recorded yet.</p>)}</div></div></div>
+        <div className="space-y-6">
+          <div className="flex items-center gap-4 p-4 rounded-xl bg-amber-900/20 border border-amber-800/50">
+            <Avatar name={selectedStudentForNotes?.name||''} color={selectedStudentForNotes?.color||'bg-blue-500'} photoUrl={selectedStudentForNotes?.photoUrl}/>
+            <div>
+              <h4 className="font-bold text-white">{selectedStudentForNotes?.name}</h4>
+              <p className="text-sm text-slate-400">{selectedStudentForNotes?.className}</p>
+            </div>
+          </div>
+          
+          <form onSubmit={saveNote} className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold uppercase mb-1 text-slate-400">Date</label>
+              <input 
+                type="date" 
+                required 
+                className="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 style-color-scheme-dark bg-slate-700 border-slate-600 text-white" 
+                value={noteForm.date} 
+                onChange={e=>setNoteForm(p=>({...p, date:e.target.value}))}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase mb-1 text-slate-400">Catatan (Note)</label>
+              <textarea 
+                required 
+                rows="3" 
+                placeholder="Enter note details here..." 
+                className="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 bg-slate-700 border-slate-600 text-white placeholder-slate-400" 
+                value={noteForm.text} 
+                onChange={e=>setNoteForm(p=>({...p, text:e.target.value}))}
+              />
+            </div>
+            <button type="submit" className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold shadow-sm transition-colors">{noteForm.id?'Update':'Add'} Note</button>
+          </form>
+
+          <div className="border-t pt-4 border-slate-700">
+            <h5 className="text-sm font-bold mb-3 flex items-center gap-2 text-white"><Clock size={16} /> History</h5>
+            <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+              {selectedStudentForNotes?.notes && selectedStudentForNotes.notes.length > 0 ? (
+                [...selectedStudentForNotes.notes].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((n)=>(
+                <div key={n.id} className="p-3 border rounded-xl text-sm group relative transition-colors bg-slate-800 border-slate-700">
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded border bg-slate-700 text-slate-300 border-slate-600">{n.date}</span>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg shadow-sm bg-slate-900/90">
+                      <button type="button" onClick={()=>startEditNote(n)} className="p-1 hover:bg-slate-800 rounded text-blue-400"><Edit2 size={14} /></button>
+                      <button type="button" onClick={()=>deleteNote(n.id)} className="p-1 hover:bg-slate-800 rounded text-red-400"><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                  <p className="text-sm mt-1 whitespace-pre-wrap text-slate-300">{n.text}</p>
+                </div>
+              ))) : (<p className="text-center text-sm py-4 text-slate-500">No notes recorded yet.</p>)}
+            </div>
+          </div>
+        </div>
       </Modal>
 
+      {/* Attendance Modal */}
       <Modal isOpen={isAttendanceModalOpen} onClose={()=>setIsAttendanceModalOpen(false)} title="Manage Attendance">
-         <div className="space-y-6"><div className="flex items-center gap-4 p-4 rounded-xl border border-transparent bg-slate-800 border-slate-700"><Avatar name={selectedStudentForAttendance?.name||''} color={selectedStudentForAttendance?.color||'bg-blue-500'} photoUrl={selectedStudentForAttendance?.photoUrl}/><div><h4 className="font-bold text-white">{selectedStudentForAttendance?.name}</h4><p className="text-sm text-slate-400">{selectedStudentForAttendance?.className}</p></div></div><div><label className="block text-sm font-medium mb-2 text-slate-300">Mark for specific date</label><div className="flex gap-2"><input type="date" className="flex-1 px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 style-color-scheme-dark bg-slate-700 border-slate-600 text-white" value={attendanceDate} onChange={e=>setAttendanceDate(e.target.value)}/><button onClick={()=>markAttendance('present')} className="flex items-center justify-center gap-1 px-4 py-2 font-bold rounded-xl transition-colors bg-emerald-900/50 text-emerald-400 hover:bg-emerald-800/50"><Check size={16}/> Present</button><button onClick={()=>markAttendance('absent')} className="flex items-center justify-center gap-1 px-4 py-2 font-bold rounded-xl transition-colors bg-red-900/50 text-red-400 hover:bg-red-800/50"><X size={16}/> Absent</button></div></div><div><h5 className="text-sm font-semibold mb-3 flex items-center gap-2 text-white"><Clock size={14}/> Record History</h5><div className="max-h-48 overflow-y-auto border rounded-xl divide-y border-slate-700 divide-slate-700">{selectedStudentForAttendance?.attendanceRecords?.length > 0 ? ([...selectedStudentForAttendance.attendanceRecords].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((r,i)=>(<div key={i} className="py-3 px-4 flex justify-between items-center transition-colors hover:bg-slate-800"><span className="font-medium text-sm text-slate-300">{r.date}</span><div className="flex items-center gap-3"><span className={`text-xs font-bold px-2 py-0.5 rounded uppercase ${r.status==='present' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-red-900/50 text-red-400'}`}>{r.status}</span><button onClick={()=>deleteAttendanceRecord(r)} className="p-1 rounded transition-colors text-slate-500 hover:text-red-400 hover:bg-slate-700"><Trash2 size={14} /></button></div></div>))) : (<div className="p-4 text-center text-sm text-slate-500">No records found.</div>)}</div></div></div>
+         <div className="space-y-6">
+           <div className="flex items-center gap-4 p-4 rounded-xl border border-transparent bg-slate-800 border-slate-700">
+             <Avatar name={selectedStudentForAttendance?.name||''} color={selectedStudentForAttendance?.color||'bg-blue-500'} photoUrl={selectedStudentForAttendance?.photoUrl}/>
+             <div>
+               <h4 className="font-bold text-white">{selectedStudentForAttendance?.name}</h4>
+               <p className="text-sm text-slate-400">{selectedStudentForAttendance?.className}</p>
+             </div>
+           </div>
+           
+           <div>
+             <label className="block text-sm font-medium mb-2 text-slate-300">Mark for specific date</label>
+             <div className="flex gap-2">
+               <input 
+                 type="date" 
+                 className="flex-1 px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 style-color-scheme-dark bg-slate-700 border-slate-600 text-white" 
+                 value={attendanceDate} 
+                 onChange={e=>setAttendanceDate(e.target.value)}
+               />
+               <button 
+                 onClick={()=>markAttendance('present')} 
+                 className="flex items-center justify-center gap-1 px-4 py-2 font-bold rounded-xl transition-colors bg-emerald-900/50 text-emerald-400 hover:bg-emerald-800/50"
+               >
+                 <Check size={16}/> Present
+               </button>
+               <button 
+                 onClick={()=>markAttendance('absent')} 
+                 className="flex items-center justify-center gap-1 px-4 py-2 font-bold rounded-xl transition-colors bg-red-900/50 text-red-400 hover:bg-red-800/50"
+               >
+                 <X size={16}/> Absent
+               </button>
+             </div>
+           </div>
+
+           <div>
+             <h5 className="text-sm font-semibold mb-3 flex items-center gap-2 text-white"><Clock size={14}/> Record History</h5>
+             <div className="max-h-48 overflow-y-auto border rounded-xl divide-y border-slate-700 divide-slate-700">
+                {selectedStudentForAttendance?.attendanceRecords?.length > 0 ? (
+                  [...selectedStudentForAttendance.attendanceRecords].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((r,i)=>(
+                  <div key={i} className="py-3 px-4 flex justify-between items-center transition-colors hover:bg-slate-800">
+                    <span className="font-medium text-sm text-slate-300">{r.date}</span>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded uppercase ${r.status==='present' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-red-900/50 text-red-400'}`}>{r.status}</span>
+                      <button onClick={()=>deleteAttendanceRecord(r)} className="p-1 rounded transition-colors text-slate-500 hover:text-red-400 hover:bg-slate-700"><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                ))) : (<div className="p-4 text-center text-sm text-slate-500">No records found.</div>)}
+             </div>
+           </div>
+         </div>
       </Modal>
 
+      {/* Add / Edit Form Modal */}
       <Modal isOpen={isModalOpen} onClose={()=>setIsModalOpen(false)} title={editingId ? "Edit Student" : "Add Student"}>
         <form onSubmit={handleSave} className="space-y-4 text-sm">
-          {!editingId && (<div className="flex p-1 rounded-xl mb-4 bg-slate-900"><button type="button" onClick={()=>setFormData(p=>({...p,program:'pemulihan'}))} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${formData.program==='pemulihan'?'bg-slate-700 shadow-sm text-indigo-400':'text-slate-400 hover:text-slate-200'}`}>Profile Pemulihan</button><button type="button" onClick={()=>setFormData(p=>({...p,program:'mbk'}))} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${formData.program==='mbk'?'bg-slate-700 shadow-sm text-indigo-400':'text-slate-400 hover:text-slate-200'}`}>Murid MBK & OKU</button></div>)}
-          <div className="flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-2xl transition-colors bg-slate-800/50 border-slate-600 hover:border-indigo-500"><div className="mb-3"><Avatar name={formData.name||'Student'} photoUrl={formData.photoUrl} size="w-20 h-20"/></div><label className="cursor-pointer"><span className="flex items-center gap-2 text-sm font-bold transition-colors text-indigo-400 hover:text-indigo-300"><Camera size={16}/> {formData.photoUrl?'Change Photo':'Upload Photo'}</span><input type="file" hidden accept="image/*" onChange={e=>handleImageUpload(e,'profile')}/></label>{formData.photoUrl && (<div className="flex items-center gap-3 mt-2"><button type="button" onClick={()=>{setRawImageSrc(formData.photoUrl);setUploadType('profile');}} className="text-xs font-bold hover:underline text-indigo-400">Adjust</button><span className="text-slate-600">|</span><button type="button" onClick={()=>handleRemovePhoto('profile')} className="text-xs font-bold hover:underline text-red-400">Remove</button></div>)}<p className="text-xs mt-2 text-slate-500">Max size 5MB</p></div>
-          <div><label className="block text-sm font-bold mb-1 text-slate-300">Full Name</label><input required placeholder="e.g. Jane Doe" className="w-full p-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white placeholder-slate-400" value={formData.name} onChange={e=>setFormData({...formData,name:e.target.value})}/></div>
-          <div><label className="block text-sm font-bold mb-1 text-slate-300">Jantina (Gender)</label><div className="flex gap-6 p-2.5 border rounded-xl bg-slate-800/50 border-slate-700"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" className="text-indigo-600 focus:ring-indigo-500 w-4 h-4" checked={formData.gender==='Lelaki'} onChange={()=>setFormData({...formData,gender:'Lelaki'})}/> <span className="text-sm text-white">Lelaki</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" className="text-indigo-600 focus:ring-indigo-500 w-4 h-4" checked={formData.gender==='Perempuan'} onChange={()=>setFormData({...formData,gender:'Perempuan'})}/> <span className="text-sm text-white">Perempuan</span></label></div></div>
-          {formData.program === 'pemulihan' ? (<><div><label className="block text-sm font-bold mb-1 text-slate-300">IC Number (Optional but Recommended)</label><input placeholder="For Auto-Year (e.g. 16...)" className="w-full p-2.5 border rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white placeholder-slate-400" value={formData.ic} onChange={e=>setFormData({...formData,ic:e.target.value.replace(/\D/g,'')})} maxLength={12}/></div><div><label className="block text-sm font-bold mb-1 text-slate-300">Class Name</label><input required placeholder="e.g. 2 Hebat" className="w-full p-2.5 border rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white placeholder-slate-400" value={formData.className} onChange={handleClassNameChange}/><p className="text-xs mt-1 text-slate-500">Format: Year ClassName (e.g. 2 Hebat)</p></div><div><label className="block text-sm font-bold mb-1 text-slate-300">Subject</label><select className="w-full p-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white" value={formData.subject} onChange={e=>setFormData({...formData,subject:e.target.value})}>{subjects.map(s=><option key={s} value={s}>{s}</option>)}</select></div><label className="flex items-center gap-2 font-bold p-3 border rounded-xl cursor-pointer bg-slate-800/50 border-slate-700 text-slate-300"><input type="checkbox" checked={formData.isNewStudent} onChange={e=>setFormData({...formData,isNewStudent:e.target.checked})} className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 rounded border-gray-300"/> Murid Baru (插班生)</label></>) : (<><div><label className="block text-sm font-bold mb-1 text-slate-300">Kategori (Category)</label><div className="flex gap-6 p-2.5 border rounded-xl bg-slate-800/50 border-slate-700"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" className="text-amber-600 focus:ring-amber-500 w-4 h-4" checked={formData.mbkType==='MBK'} onChange={()=>setFormData({...formData,mbkType:'MBK'})}/> <span className="text-sm text-white">MBK (Tiada Kad)</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" className="text-emerald-600 focus:ring-emerald-500 w-4 h-4" checked={formData.mbkType==='OKU'} onChange={()=>setFormData({...formData,mbkType:'OKU'})}/> <span className="text-sm text-white">OKU (Ada Kad)</span></label></div></div><div><label className="block text-sm font-bold mb-1 text-slate-300">MyKid / IC Number</label><input required placeholder="e.g. 160520101234" className="w-full p-2.5 border rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white placeholder-slate-400" value={formData.ic} onChange={e=>setFormData({...formData,ic:e.target.value.replace(/\D/g,'')})} maxLength={12}/><p className="text-xs mt-1 text-slate-500">System will auto-calculate School Year based on first 2 digits.</p></div><div><label className="block text-sm font-bold mb-1 text-slate-300">Remarks</label><textarea placeholder="Enter optional remarks..." className="w-full p-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white placeholder-slate-400" rows="2" value={formData.remarks} onChange={e=>setFormData({...formData,remarks:e.target.value})}/></div><div><label className="block text-sm font-bold mb-1 text-slate-300">Document Link</label><input placeholder="https://..." className="w-full p-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white placeholder-slate-400" value={formData.docLink} onChange={e=>setFormData({...formData,docLink:e.target.value})}/></div>{formData.mbkType === 'OKU' && (<div className="p-4 border rounded-xl flex items-center justify-between bg-slate-800 border-slate-700"><span className="font-bold flex items-center gap-2 text-sm text-slate-300"><QrCode size={16}/> Kad OKU QR</span><div className="flex items-center gap-3">{formData.qrCodeUrl && (<button type="button" onClick={()=>handleRemovePhoto('qr')} className="text-red-500 text-xs font-bold hover:underline">Remove</button>)}<label className="px-4 py-2 rounded-lg cursor-pointer font-bold text-xs transition-colors bg-indigo-900/50 text-indigo-400 hover:bg-indigo-800">Upload<input type="file" hidden accept="image/*" onChange={e=>handleImageUpload(e,'qr')}/></label></div></div>)}</>)}
-          <div className="flex gap-3 pt-4"><button type="button" onClick={()=>setIsModalOpen(false)} className="flex-1 py-3 text-sm font-bold rounded-xl transition-colors bg-slate-700 text-white hover:bg-slate-600">Cancel</button><button type="submit" className="flex-1 py-3 text-sm text-white font-bold rounded-xl shadow-sm bg-indigo-600 hover:bg-indigo-700 transition-colors">{editingId ? 'Save Changes' : 'Add Student'}</button></div>
+          {!editingId && (
+            <div className="flex p-1 rounded-xl mb-4 bg-slate-900">
+              <button 
+                type="button" 
+                onClick={()=>setFormData(p=>({...p,program:'pemulihan'}))} 
+                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${formData.program==='pemulihan'?'bg-slate-700 shadow-sm text-indigo-400':'text-slate-400 hover:text-slate-200'}`}
+              >
+                Profile Pemulihan
+              </button>
+              <button 
+                type="button" 
+                onClick={()=>setFormData(p=>({...p,program:'mbk'}))} 
+                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${formData.program==='mbk'?'bg-slate-700 shadow-sm text-indigo-400':'text-slate-400 hover:text-slate-200'}`}
+              >
+                Murid MBK & OKU
+              </button>
+            </div>
+          )}
+          
+          <div className="flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-2xl transition-colors bg-slate-800/50 border-slate-600 hover:border-indigo-500">
+            <div className="mb-3">
+              <Avatar name={formData.name||'Student'} photoUrl={formData.photoUrl} size="w-20 h-20"/>
+            </div>
+            <label className="cursor-pointer">
+              <span className="flex items-center gap-2 text-sm font-bold transition-colors text-indigo-400 hover:text-indigo-300">
+                <Camera size={16}/> {formData.photoUrl?'Change Photo':'Upload Photo'}
+              </span>
+              <input type="file" hidden accept="image/*" onChange={e=>handleImageUpload(e,'profile')}/>
+            </label>
+            {formData.photoUrl && (
+              <div className="flex items-center gap-3 mt-2">
+                <button type="button" onClick={()=>{setRawImageSrc(formData.photoUrl);setUploadType('profile');}} className="text-xs font-bold hover:underline text-indigo-400">Adjust</button>
+                <span className="text-slate-600">|</span>
+                <button type="button" onClick={()=>handleRemovePhoto('profile')} className="text-xs font-bold hover:underline text-red-400">Remove</button>
+              </div>
+            )}
+            <p className="text-xs mt-2 text-slate-500">Max size 5MB</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold mb-1 text-slate-300">Full Name</label>
+            <input 
+              required 
+              placeholder="e.g. Jane Doe" 
+              className="w-full p-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white placeholder-slate-400" 
+              value={formData.name} 
+              onChange={e=>setFormData({...formData,name:e.target.value})}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-bold mb-1 text-slate-300">Jantina (Gender)</label>
+            <div className="flex gap-6 p-2.5 border rounded-xl bg-slate-800/50 border-slate-700">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" className="text-indigo-600 focus:ring-indigo-500 w-4 h-4" checked={formData.gender==='Lelaki'} onChange={()=>setFormData({...formData,gender:'Lelaki'})}/> 
+                <span className="text-sm text-white">Lelaki</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" className="text-indigo-600 focus:ring-indigo-500 w-4 h-4" checked={formData.gender==='Perempuan'} onChange={()=>setFormData({...formData,gender:'Perempuan'})}/> 
+                <span className="text-sm text-white">Perempuan</span>
+              </label>
+            </div>
+          </div>
+
+          {formData.program === 'pemulihan' ? (
+            <>
+              <div>
+                <label className="block text-sm font-bold mb-1 text-slate-300">IC Number (Optional but Recommended)</label>
+                <input 
+                  placeholder="For Auto-Year (e.g. 16...)" 
+                  className="w-full p-2.5 border rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white placeholder-slate-400" 
+                  value={formData.ic} 
+                  onChange={e=>setFormData({...formData,ic:e.target.value.replace(/\D/g,'')})} 
+                  maxLength={12}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-1 text-slate-300">Class Name</label>
+                <input 
+                  required 
+                  placeholder="e.g. 2 Hebat" 
+                  className="w-full p-2.5 border rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white placeholder-slate-400" 
+                  value={formData.className} 
+                  onChange={handleClassNameChange}
+                />
+                <p className="text-xs mt-1 text-slate-500">Format: Year ClassName (e.g. 2 Hebat)</p>
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-1 text-slate-300">Subject</label>
+                <select 
+                  className="w-full p-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white" 
+                  value={formData.subject} 
+                  onChange={e=>setFormData({...formData,subject:e.target.value})}
+                >
+                  {subjects.map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <label className="flex items-center gap-2 font-bold p-3 border rounded-xl cursor-pointer bg-slate-800/50 border-slate-700 text-slate-300">
+                <input 
+                  type="checkbox" 
+                  checked={formData.isNewStudent} 
+                  onChange={e=>setFormData({...formData,isNewStudent:e.target.checked})} 
+                  className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 rounded border-gray-300"
+                /> 
+                Murid Baru (插班生)
+              </label>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="block text-sm font-bold mb-1 text-slate-300">Kategori (Category)</label>
+                <div className="flex gap-6 p-2.5 border rounded-xl bg-slate-800/50 border-slate-700">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" className="text-amber-600 focus:ring-amber-500 w-4 h-4" checked={formData.mbkType==='MBK'} onChange={()=>setFormData({...formData,mbkType:'MBK'})}/> 
+                    <span className="text-sm text-white">MBK (Tiada Kad)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" className="text-emerald-600 focus:ring-emerald-500 w-4 h-4" checked={formData.mbkType==='OKU'} onChange={()=>setFormData({...formData,mbkType:'OKU'})}/> 
+                    <span className="text-sm text-white">OKU (Ada Kad)</span>
+                  </label>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-1 text-slate-300">MyKid / IC Number</label>
+                <input 
+                  required 
+                  placeholder="e.g. 160520101234" 
+                  className="w-full p-2.5 border rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white placeholder-slate-400" 
+                  value={formData.ic} 
+                  onChange={e=>setFormData({...formData,ic:e.target.value.replace(/\D/g,'')})} 
+                  maxLength={12}
+                />
+                <p className="text-xs mt-1 text-slate-500">System will auto-calculate School Year based on first 2 digits.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-1 text-slate-300">Remarks</label>
+                <textarea 
+                  placeholder="Enter optional remarks..." 
+                  className="w-full p-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white placeholder-slate-400" 
+                  rows="2" 
+                  value={formData.remarks} 
+                  onChange={e=>setFormData({...formData,remarks:e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-1 text-slate-300">Document Link</label>
+                <input 
+                  placeholder="https://..." 
+                  className="w-full p-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 border-slate-600 text-white placeholder-slate-400" 
+                  value={formData.docLink} 
+                  onChange={e=>setFormData({...formData,docLink:e.target.value})}
+                />
+              </div>
+              
+              {formData.mbkType === 'OKU' && (
+                <div className="p-4 border rounded-xl flex items-center justify-between bg-slate-800 border-slate-700">
+                  <span className="font-bold flex items-center gap-2 text-sm text-slate-300">
+                    <QrCode size={16}/> Kad OKU QR
+                  </span>
+                  <div className="flex items-center gap-3">
+                    {formData.qrCodeUrl && (
+                      <button type="button" onClick={()=>handleRemovePhoto('qr')} className="text-red-500 text-xs font-bold hover:underline">
+                        Remove
+                      </button>
+                    )}
+                    <label className="px-4 py-2 rounded-lg cursor-pointer font-bold text-xs transition-colors bg-indigo-900/50 text-indigo-400 hover:bg-indigo-800">
+                      Upload
+                      <input type="file" hidden accept="image/*" onChange={e=>handleImageUpload(e,'qr')}/>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="flex gap-3 pt-4">
+            <button 
+              type="button" 
+              onClick={()=>setIsModalOpen(false)} 
+              className="flex-1 py-3 text-sm font-bold rounded-xl transition-colors bg-slate-700 text-white hover:bg-slate-600"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              className="flex-1 py-3 text-sm text-white font-bold rounded-xl shadow-sm bg-indigo-600 hover:bg-indigo-700 transition-colors"
+            >
+              {editingId ? 'Save Changes' : 'Add Student'}
+            </button>
+          </div>
         </form>
       </Modal>
     </div>
