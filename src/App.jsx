@@ -233,7 +233,7 @@ export default function StudentDatabaseApp() {
 
   // Force Document Title and HTML Dark Class
   useEffect(() => { 
-    document.title = "Pemulihan SJKC Shin Cheng (Harcroft)"; 
+    document.title = "Pemulihan SJKC Sin Ming"; 
     document.documentElement.classList.add('dark');
   }, []);
 
