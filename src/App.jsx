@@ -279,7 +279,7 @@ export default function StudentDatabaseApp() {
   useEffect(() => {
     let cancelled = false;
 
-    pemulihanRequest('/students')
+    pemulihanRequest('/students', adminToken ? { token: adminToken } : {})
       .then((data) => {
         if (!cancelled) setStudents(Array.isArray(data) ? data : []);
       })
@@ -292,7 +292,7 @@ export default function StudentDatabaseApp() {
       });
 
     return () => { cancelled = true; };
-  }, [refreshKey]);
+  }, [refreshKey, adminToken]);
 
   const refreshStudents = () => setRefreshKey(key => key + 1);
 
@@ -319,6 +319,7 @@ export default function StudentDatabaseApp() {
          setAdminToken('');
          setRole('user');
          setSelectedAdminStudent(null);
+         refreshStudents();
       }
     }
   };
@@ -330,6 +331,7 @@ export default function StudentDatabaseApp() {
         sessionStorage.setItem(ADMIN_TOKEN_KEY, result.token);
         setAdminToken(result.token);
         setRole('admin');
+        refreshStudents();
         setShowAdminLogin(false); setAdminPassword(''); setLoginError('');
     } catch (error) { console.error("Admin login failed:", error); setLoginError('Incorrect access code.'); }
   };
