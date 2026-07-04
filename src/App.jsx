@@ -6,33 +6,35 @@ import {
   FileText, ZoomIn, ZoomOut, Sparkles, QrCode, TrendingUp, Save, Search, ChevronDown, 
   Menu, CreditCard, ExternalLink, BookOpenCheck
 } from 'lucide-react';
-import { initializeApp } from 'firebase/app';
-import { 
-  getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut 
-} from 'firebase/auth';
-import { 
-  getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, 
-  query, serverTimestamp, arrayUnion, arrayRemove 
-} from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 
 // ==========================================
-// FIREBASE CONFIGURATION
+// API CONFIGURATION
 // ==========================================
-const firebaseConfig = typeof __firebase_config !== 
-'undefined' && __firebase_config ? JSON.parse(__firebase_config) : {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
-};
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://api.sinming.space/api').replace(/\/$/, '');
+const PEMULIHAN_API_URL = `${API_BASE_URL}/pemulihan`;
+const ADMIN_TOKEN_KEY = 'pemulihanAdminToken';
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'my-school-database';
+const pemulihanRequest = async (path, options = {}) => {
+  const headers = { Accept: 'application/json', ...(options.headers || {}) };
+  const requestOptions = { method: options.method || 'GET', headers };
+
+  if (options.token) headers.Authorization = `Bearer ${options.token}`;
+  if (options.body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    requestOptions.body = JSON.stringify(options.body);
+  }
+
+  const response = await fetch(`${PEMULIHAN_API_URL}${path}`, requestOptions);
+  const text = await response.text();
+  const payload = text ? JSON.parse(text) : null;
+
+  if (!response.ok) {
+    throw new Error((payload && (payload.error || payload.message)) || 'Request failed');
+  }
+
+  return payload;
+};
 
 // ==========================================
 // CONSTANTS & DATA
@@ -213,21 +215,17 @@ const getSubjectBadgeColor = (subject) => {
   return 'bg-slate-500';
 };
 
-const calculateStats = (records) => {
-  if (!records || records.length === 0) return { percent: 0, present: 0, total: 0 };
-  const present = records.filter(r => r.status === 'present').length;
-  return { percent: Math.round((present / records.length) * 100), present, total: records.length };
-};
-
 // ==========================================
 // MAIN APP COMPONENT
 // ==========================================
 export default function StudentDatabaseApp() {
-  const [user, setUser] = useState(null);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   
-  const [role, setRole] = useState('user'); 
+  const [adminToken, setAdminToken] = useState(() => sessionStorage.getItem(ADMIN_TOKEN_KEY) || '');
+  const [role, setRole] = useState(() => sessionStorage.getItem(ADMIN_TOKEN_KEY) ? 'admin' : 'user'); 
+  const [refreshKey, setRefreshKey] = useState(0);
   const [currentSection, setCurrentSection] = useState('profile'); 
   const [selectedAdminStudent, setSelectedAdminStudent] = useState(null); 
 
@@ -257,7 +255,7 @@ export default function StudentDatabaseApp() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
-    name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: 'Lelaki', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false, qrCodeUrl: ''
+    name: '', program: 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: 'Lelaki', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false, qrCodeUrl: '', color: ''
   });
 
   const [rawImageSrc, setRawImageSrc] = useState(null);
@@ -273,35 +271,30 @@ export default function StudentDatabaseApp() {
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, studentId: null, studentName: '' });
   const [moveConfirmation, setMoveConfirmation] = useState({ isOpen: false, student: null, newStatus: '' });
   const [moveDate, setMoveDate] = useState(new Date().toISOString().split('T')[0]);
-  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
-  const [selectedStudentForAttendance, setSelectedStudentForAttendance] = useState(null);
-  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
   const [selectedStudentForNotes, setSelectedStudentForNotes] = useState(null);
   const [noteForm, setNoteForm] = useState({ id: null, text: '', date: new Date().toISOString().split('T')[0] });
 
   // --- Effects ---
   useEffect(() => {
-    if (!auth) return;
-    signInAnonymously(auth).catch(() => {});
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (currentUser && currentUser.email === "admin@pemulihan.com") setRole('admin');
-      else setRole('user');
-    });
-    return () => unsubscribe();
-  }, []);
+    let cancelled = false;
 
-  useEffect(() => {
-    if (!db) return;
-    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        setStudents(snapshot.docs.map(doc => ({ id: doc.id, attendanceRecords: [], notes: [], ...doc.data() })));
-        setLoading(false);
-      }, (error) => { console.error("Firestore error:", error); setLoading(false); }
-    );
-    return () => unsubscribe();
-  }, []);
+    pemulihanRequest('/students', adminToken ? { token: adminToken } : {})
+      .then((data) => {
+        if (!cancelled) setStudents(Array.isArray(data) ? data : []);
+      })
+      .catch((error) => {
+        console.error("Pemulihan API error:", error);
+        if (!cancelled) setLoadError(error.message || 'Unable to load database.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [refreshKey, adminToken]);
+
+  const refreshStudents = () => setRefreshKey(key => key + 1);
 
   // --- Handlers ---
   const handleTabChange = (tabId) => {
@@ -322,7 +315,11 @@ export default function StudentDatabaseApp() {
       if (role !== 'admin') setShowAdminLogin(true);
     } else {
       if (role === 'admin') {
-         try { await signOut(auth); setRole('user'); } catch(e) { console.error("Logout failed", e); }
+         sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+         setAdminToken('');
+         setRole('user');
+         setSelectedAdminStudent(null);
+         refreshStudents();
       }
     }
   };
@@ -330,9 +327,13 @@ export default function StudentDatabaseApp() {
   const handleAdminLogin = async (e) => {
     e.preventDefault();
     try {
-        await signInWithEmailAndPassword(auth, "admin@pemulihan.com", adminPassword);
+        const result = await pemulihanRequest('/admin/login', { method: 'POST', body: { code: adminPassword } });
+        sessionStorage.setItem(ADMIN_TOKEN_KEY, result.token);
+        setAdminToken(result.token);
+        setRole('admin');
+        refreshStudents();
         setShowAdminLogin(false); setAdminPassword(''); setLoginError('');
-    } catch (error) { setLoginError('Incorrect password.'); }
+    } catch (error) { console.error("Admin login failed:", error); setLoginError('Incorrect access code.'); }
   };
 
   const handleImageUpload = (e, type = 'profile') => {
@@ -368,13 +369,14 @@ export default function StudentDatabaseApp() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!user || !db) return;
+    if (role !== 'admin' || !adminToken) return;
     if (!formData.gender) { alert("Please select a gender (Jantina) before saving."); return; }
     
     try {
       const dataToSave = {
         name: formData.name, program: formData.program, gender: formData.gender, status: formData.status,
-        photoUrl: formData.photoUrl || '', updatedAt: serverTimestamp(), ic: formData.ic || '', isNewStudent: formData.isNewStudent || false
+        photoUrl: formData.photoUrl || '', ic: formData.ic || '', isNewStudent: formData.isNewStudent || false,
+        color: formData.color || cardColors[Math.floor(Math.random() * cardColors.length)]
       };
       
       if (formData.program === 'pemulihan') {
@@ -387,19 +389,25 @@ export default function StudentDatabaseApp() {
       }
 
       if (editingId) {
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', editingId), dataToSave);
+        await pemulihanRequest(`/students/${editingId}`, { method: 'PUT', token: adminToken, body: dataToSave });
       } else {
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), {
-          ...dataToSave, attendanceRecords: [], notes: [], color: cardColors[Math.floor(Math.random() * cardColors.length)], createdAt: serverTimestamp()
+        await pemulihanRequest('/students', { 
+          method: 'POST', 
+          token: adminToken, 
+          body: { 
+            ...dataToSave, 
+            notes: [], 
+            progress: { bm: [], math: [] }
+          }
         });
       }
+      refreshStudents();
       setIsModalOpen(false); setEditingId(null);
     } catch (err) { console.error("Error saving:", err); }
   };
   
-  // Updated toggleSkill to Auto-Save immediately
   const toggleSkill = async (skillIndex) => {
-    if (!user || role !== 'admin' || !selectedStudentForProgress || !db) return;
+    if (role !== 'admin' || !adminToken || !selectedStudentForProgress) return;
 
     const currentSubjectKey = progressSubject === 'BM' ? 'bm' : 'math';
     const currentSkills = studentProgressData[currentSubjectKey] || [];
@@ -416,17 +424,19 @@ export default function StudentDatabaseApp() {
       [currentSubjectKey]: newSkills
     };
 
-    // Optimistic UI Update
     setStudentProgressData(newProgressData);
+    setSelectedStudentForProgress(prev => prev ? { ...prev, progress: newProgressData } : prev);
+    setStudents(prev => prev.map(student => student.id === selectedStudentForProgress.id ? { ...student, progress: newProgressData } : student));
 
-    // Auto Save to Firestore
     try {
-       const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForProgress.id);
-       await updateDoc(ref, {
-         progress: newProgressData
+       await pemulihanRequest(`/students/${selectedStudentForProgress.id}/progress`, { 
+         method: 'PUT', 
+         token: adminToken, 
+         body: { progress: newProgressData } 
        });
     } catch (err) {
        console.error("Error auto-saving progress:", err);
+       refreshStudents();
     }
   };
 
@@ -454,59 +464,55 @@ export default function StudentDatabaseApp() {
   };
 
   const executeDelete = async () => {
-    if (!user || role !== 'admin' || !deleteConfirmation.studentId || !db) return;
+    if (role !== 'admin' || !adminToken || !deleteConfirmation.studentId) return;
     try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', deleteConfirmation.studentId));
+      await pemulihanRequest(`/students/${deleteConfirmation.studentId}`, { method: 'DELETE', token: adminToken });
       setDeleteConfirmation({ isOpen: false, studentId: null, studentName: '' });
+      refreshStudents();
     } catch (err) { console.error("Error deleting:", err); }
-  };
-
-  const markAttendance = async (status) => {
-    if (!user || !selectedStudentForAttendance || !db) return;
-    const newRecord = { date: attendanceDate, status: status, timestamp: Date.now() };
-    try {
-      const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForAttendance.id);
-      const existingRecord = selectedStudentForAttendance.attendanceRecords?.find(r => r.date === newRecord.date);
-      if (existingRecord) await updateDoc(ref, { attendanceRecords: arrayRemove(existingRecord) });
-      await updateDoc(ref, { attendanceRecords: arrayUnion(newRecord) });
-      setIsAttendanceModalOpen(false); // Auto close
-    } catch (err) { console.error("Error marking attendance:", err); }
-  };
-
-  const deleteAttendanceRecord = async (record) => {
-    if (!user || !selectedStudentForAttendance || !db) return;
-    try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForAttendance.id), { attendanceRecords: arrayRemove(record) }); } 
-    catch (err) { console.error("Error deleting record:", err); }
   };
 
   const saveNote = async (e) => {
     e.preventDefault();
-    if (!user || !selectedStudentForNotes || !db) return;
-    const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForNotes.id);
-    let newNotes = [...(selectedStudentForNotes.notes || [])];
-    if (noteForm.id) newNotes = newNotes.map(n => n.id === noteForm.id ? { ...n, text: noteForm.text, date: noteForm.date } : n);
-    else newNotes.push({ id: Date.now().toString(), text: noteForm.text, date: noteForm.date, timestamp: Date.now() });
-    try { await updateDoc(ref, { notes: newNotes }); setNoteForm({ id: null, text: '', date: new Date().toISOString().split('T')[0] }); } 
+    if (role !== 'admin' || !adminToken || !selectedStudentForNotes) return;
+    const path = noteForm.id 
+      ? `/students/${selectedStudentForNotes.id}/notes/${noteForm.id}`
+      : `/students/${selectedStudentForNotes.id}/notes`;
+    const method = noteForm.id ? 'PUT' : 'POST';
+
+    try { 
+      const updatedStudent = await pemulihanRequest(path, { method, token: adminToken, body: { text: noteForm.text, date: noteForm.date } });
+      setSelectedStudentForNotes(updatedStudent);
+      setStudents(prev => prev.map(student => student.id === updatedStudent.id ? updatedStudent : student));
+      setNoteForm({ id: null, text: '', date: new Date().toISOString().split('T')[0] }); 
+    } 
     catch (err) { console.error("Error saving note:", err); }
   };
 
   const deleteNote = async (noteId) => {
-    if (!user || !selectedStudentForNotes || !db) return;
+    if (role !== 'admin' || !adminToken || !selectedStudentForNotes) return;
     if (!window.confirm('Delete this note?')) return;
-    const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', selectedStudentForNotes.id);
-    const newNotes = (selectedStudentForNotes.notes || []).filter(n => n.id !== noteId);
-    try { await updateDoc(ref, { notes: newNotes }); } catch (err) { console.error("Error deleting note:", err); }
+    try { 
+      const updatedStudent = await pemulihanRequest(`/students/${selectedStudentForNotes.id}/notes/${noteId}`, { method: 'DELETE', token: adminToken });
+      setSelectedStudentForNotes(updatedStudent);
+      setStudents(prev => prev.map(student => student.id === updatedStudent.id ? updatedStudent : student));
+    } catch (err) { console.error("Error deleting note:", err); }
   };
 
   const startEditNote = (note) => setNoteForm({ id: note.id, text: note.text, date: note.date });
 
   const executeMove = async () => {
-    if (!user || role !== 'admin' || !moveConfirmation.student || !db) return;
+    if (role !== 'admin' || !adminToken || !moveConfirmation.student) return;
     try {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', moveConfirmation.student.id), { 
+      await pemulihanRequest(`/students/${moveConfirmation.student.id}/status`, { 
+        method: 'PUT',
+        token: adminToken,
+        body: {
         status: moveConfirmation.newStatus, graduationDate: moveConfirmation.newStatus === 'Lulus' ? moveDate : null 
+        }
       });
       setMoveConfirmation({ isOpen: false, student: null, newStatus: '' });
+      refreshStudents();
     } catch (err) { console.error("Error updating status:", err); }
   };
 
@@ -516,14 +522,15 @@ export default function StudentDatabaseApp() {
       name: student.name, program: student.program || 'pemulihan', className: student.className || '',
       subject: student.subject || 'Pemulihan BM', ic: student.ic || '', gender: student.gender || 'Lelaki',
       mbkType: student.mbkType || 'MBK', status: student.status || 'Active', photoUrl: student.photoUrl || '',
-      remarks: student.remarks || '', docLink: student.docLink || '', isNewStudent: student.isNewStudent || false, qrCodeUrl: student.qrCodeUrl || ''
+      remarks: student.remarks || '', docLink: student.docLink || '', isNewStudent: student.isNewStudent || false, qrCodeUrl: student.qrCodeUrl || '',
+      color: student.color || 'bg-blue-500'
     });
     setIsModalOpen(true);
   };
 
   const openAdd = () => {
     setEditingId(null);
-    setFormData({ name: '', program: currentSection === 'mbk' ? 'mbk' : 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: 'Lelaki', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false, qrCodeUrl: '' });
+    setFormData({ name: '', program: currentSection === 'mbk' ? 'mbk' : 'pemulihan', className: '', subject: 'Pemulihan BM', ic: '', gender: 'Lelaki', mbkType: 'MBK', status: 'Active', photoUrl: '', remarks: '', docLink: '', isNewStudent: false, qrCodeUrl: '', color: '' });
     setIsModalOpen(true);
   };
 
@@ -531,21 +538,6 @@ export default function StudentDatabaseApp() {
     setSelectedStudentForNotes(student);
     setNoteForm({ id: null, text: '', date: new Date().toISOString().split('T')[0] });
     setIsNotesModalOpen(true);
-  };
-
-  const openAttendanceModal = (student) => {
-    setSelectedStudentForAttendance(student);
-    setAttendanceDate(new Date().toISOString().split('T')[0]);
-    setIsAttendanceModalOpen(true);
-  };
-
-  const handleCheckOKU = (ic) => {
-    if (!ic) return;
-    const textArea = document.createElement("textarea");
-    textArea.value = ic; document.body.appendChild(textArea); textArea.select();
-    try { document.execCommand('copy'); } catch (err) { console.error('Copy failed', err); }
-    document.body.removeChild(textArea);
-    window.open('https://oku.jkm.gov.my/semakan_oku', '_blank');
   };
 
   const toggleStudentStatus = (student) => {
@@ -654,9 +646,7 @@ export default function StudentDatabaseApp() {
   const renderStudentCard = (student, sectionType) => {
     const isMbk = sectionType === 'mbk';
     const isLulus = sectionType === 'lulus';
-    const isProfile = sectionType === 'profile';
     const year = getStudentCurrentYear(student);
-    const stats = calculateStats(student.attendanceRecords || []);
     const isSelected = selectedAdminStudent === student.id;
 
     let gradientClass = 'from-blue-400 to-blue-600';
@@ -664,8 +654,6 @@ export default function StudentDatabaseApp() {
         gradientClass = 'from-purple-400 to-purple-600';
     } else if (isMbk) {
         gradientClass = 'from-indigo-400 to-indigo-600';
-    } else if (isProfile) {
-        gradientClass = stats.percent >= 75 ? 'from-emerald-400 to-emerald-600' : 'from-amber-400 to-amber-600';
     }
 
     const handleCardClick = () => {
@@ -709,17 +697,6 @@ export default function StudentDatabaseApp() {
                </>
             )}
 
-            {isProfile && (
-              <div className="flex flex-col gap-1 w-full mt-1">
-                <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
-                  <span>Attendance</span>
-                  <span className={stats.percent >= 75 ? 'text-emerald-400' : 'text-amber-400'}>{stats.percent}%</span>
-                </div>
-                <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                  <div className={`h-full rounded-full ${stats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${stats.percent}%` }}></div>
-                </div>
-              </div>
-            )}
           </div>
           
           {isMbk && student.remarks && (
@@ -753,7 +730,6 @@ export default function StudentDatabaseApp() {
           {role === 'admin' && (
             <div className={`absolute top-2 right-2 flex ${isMbk ? 'flex-row' : 'flex-col'} gap-1 transition-opacity duration-200 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} bg-slate-800/90 p-1 rounded-lg backdrop-blur-sm shadow-sm border border-slate-700`}>
                {(!isMbk && !isLulus) && <button onClick={(e) => { e.stopPropagation(); openNotesModal(student); }} className="p-1.5 text-amber-400 hover:bg-slate-700 rounded transition-colors" title="Notes"><StickyNote size={14} /></button>}
-               {isProfile && <button onClick={(e) => { e.stopPropagation(); openAttendanceModal(student); }} className="p-1.5 text-blue-400 hover:bg-slate-700 rounded transition-colors" title="Attendance"><Calendar size={14} /></button>}
                <button onClick={(e) => { e.stopPropagation(); openEdit(student); }} className="p-1.5 text-slate-400 hover:bg-slate-700 rounded transition-colors" title="Edit"><Edit2 size={14} /></button>
                {!isMbk && <button onClick={(e) => { e.stopPropagation(); toggleStudentStatus(student); }} className="p-1.5 text-purple-400 hover:bg-slate-700 rounded transition-colors" title="Change Status"><RotateCcw size={14} /></button>}
                <button onClick={(e) => { e.stopPropagation(); confirmDelete(student); }} className="p-1.5 text-red-400 hover:bg-slate-700 rounded transition-colors" title="Delete"><Trash2 size={14} /></button>
@@ -772,7 +748,6 @@ export default function StudentDatabaseApp() {
             {role === 'admin' && isSelected && (
               <div className="grid grid-cols-2 gap-1 w-[70px]">
                  {(!isMbk && !isLulus) && <button onClick={(e) => { e.stopPropagation(); openNotesModal(student); }} className="p-1 text-amber-500 bg-slate-700 border-slate-600 rounded border flex justify-center"><StickyNote size={12} /></button>}
-                 {isProfile && <button onClick={(e) => { e.stopPropagation(); openAttendanceModal(student); }} className="p-1 text-blue-500 bg-slate-700 border-slate-600 rounded border flex justify-center"><Calendar size={12} /></button>}
                  <button onClick={(e) => { e.stopPropagation(); openEdit(student); }} className={`p-1 text-slate-400 bg-slate-700 border border-slate-600 flex justify-center rounded ${isMbk || isLulus ? '' : 'col-span-2'}`}><Edit2 size={12} /></button>
                  {!isMbk && <button onClick={(e) => { e.stopPropagation(); toggleStudentStatus(student); }} className="p-1 text-purple-500 bg-slate-700 border-slate-600 rounded border flex justify-center"><RotateCcw size={12} /></button>}
                  <button onClick={(e) => { e.stopPropagation(); confirmDelete(student); }} className="p-1 text-red-500 bg-slate-700 border-slate-600 rounded border flex justify-center col-span-2"><Trash2 size={12} /></button>
@@ -790,18 +765,6 @@ export default function StudentDatabaseApp() {
             </div>
             
             {!isMbk && !isLulus && <div className={`inline-block text-[10px] font-bold text-white px-2 py-0.5 rounded-md mb-1 shadow-sm ${getSubjectBadgeColor(student.subject)}`}>{student.subject}</div>}
-
-            {isProfile && (
-              <div className="flex flex-col gap-1 w-full mt-1">
-                <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
-                  <span>Attendance</span>
-                  <span className={stats.percent >= 75 ? 'text-emerald-400' : 'text-amber-400'}>{stats.percent}%</span>
-                </div>
-                <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                  <div className={`h-full rounded-full ${stats.percent >= 75 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${stats.percent}%` }}></div>
-                </div>
-              </div>
-            )}
 
             {isMbk && student.remarks && <div className="text-[10px] text-slate-400 italic bg-yellow-900/20 px-2 py-1 rounded border border-yellow-800/50 flex items-start gap-1 mt-1"><MessageSquare size={10} className="mt-0.5 flex-shrink-0 text-yellow-500" /><span className="line-clamp-2">{student.remarks}</span></div>}
             
@@ -1301,6 +1264,12 @@ export default function StudentDatabaseApp() {
                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-600 mx-auto mb-4"></div>
                  <p className="text-slate-400">Loading database...</p>
                </div>
+             ) : loadError ? (
+               <div className="text-center py-24 rounded-3xl border border-dashed shadow-sm bg-slate-800 border-slate-700">
+                 <XCircle className="text-red-400 w-10 h-10 mx-auto mb-4"/>
+                 <h3 className="text-xl font-bold text-white">Database connection failed</h3>
+                 <p className="text-sm text-slate-400 mt-2">{loadError}</p>
+               </div>
              ) : (currentSection === 'profile' && Object.keys(groupedProfileStudents).length === 0) || (currentSection === 'plan' && Object.keys(groupedPlanStudents).length === 0) || (currentSection === 'mbk' && filteredStudents.length === 0) || (currentSection === 'lulus' && Object.keys(groupedLulusStudents).length === 0) ? (
                <div className="text-center py-24 rounded-3xl border border-dashed shadow-sm bg-slate-800 border-slate-700">
                  <Users className="text-slate-400 w-10 h-10 mx-auto mb-4"/>
@@ -1538,59 +1507,6 @@ export default function StudentDatabaseApp() {
             </div>
           </div>
         </div>
-      </Modal>
-
-      {/* Attendance Modal */}
-      <Modal isOpen={isAttendanceModalOpen} onClose={()=>setIsAttendanceModalOpen(false)} title="Manage Attendance">
-         <div className="space-y-6">
-           <div className="flex items-center gap-4 p-4 rounded-xl border border-transparent bg-slate-800 border-slate-700">
-             <Avatar name={selectedStudentForAttendance?.name||''} color={selectedStudentForAttendance?.color||'bg-blue-500'} photoUrl={selectedStudentForAttendance?.photoUrl}/>
-             <div>
-               <h4 className="font-bold text-white">{selectedStudentForAttendance?.name}</h4>
-               <p className="text-sm text-slate-400">{selectedStudentForAttendance?.className}</p>
-             </div>
-           </div>
-           
-           <div>
-             <label className="block text-sm font-medium mb-2 text-slate-300">Mark for specific date</label>
-             <div className="flex gap-2">
-               <input 
-                 type="date" 
-                 className="flex-1 px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 style-color-scheme-dark bg-slate-700 border-slate-600 text-white" 
-                 value={attendanceDate} 
-                 onChange={e=>setAttendanceDate(e.target.value)}
-               />
-               <button 
-                 onClick={()=>markAttendance('present')} 
-                 className="flex items-center justify-center gap-1 px-4 py-2 font-bold rounded-xl transition-colors bg-emerald-900/50 text-emerald-400 hover:bg-emerald-800/50"
-               >
-                 <Check size={16}/> Present
-               </button>
-               <button 
-                 onClick={()=>markAttendance('absent')} 
-                 className="flex items-center justify-center gap-1 px-4 py-2 font-bold rounded-xl transition-colors bg-red-900/50 text-red-400 hover:bg-red-800/50"
-               >
-                 <X size={16}/> Absent
-               </button>
-             </div>
-           </div>
-
-           <div>
-             <h5 className="text-sm font-semibold mb-3 flex items-center gap-2 text-white"><Clock size={14}/> Record History</h5>
-             <div className="max-h-48 overflow-y-auto border rounded-xl divide-y border-slate-700 divide-slate-700">
-                {selectedStudentForAttendance?.attendanceRecords?.length > 0 ? (
-                  [...selectedStudentForAttendance.attendanceRecords].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((r,i)=>(
-                  <div key={i} className="py-3 px-4 flex justify-between items-center transition-colors hover:bg-slate-800">
-                    <span className="font-medium text-sm text-slate-300">{r.date}</span>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded uppercase ${r.status==='present' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-red-900/50 text-red-400'}`}>{r.status}</span>
-                      <button onClick={()=>deleteAttendanceRecord(r)} className="p-1 rounded transition-colors text-slate-500 hover:text-red-400 hover:bg-slate-700"><Trash2 size={14} /></button>
-                    </div>
-                  </div>
-                ))) : (<div className="p-4 text-center text-sm text-slate-500">No records found.</div>)}
-             </div>
-           </div>
-         </div>
       </Modal>
 
       {/* Add / Edit Form Modal */}
